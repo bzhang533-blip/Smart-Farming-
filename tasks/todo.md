@@ -6,14 +6,7 @@
 
 ## 进行中
 
-### [2026-06-04] 创建项目 AGENTS.md（多 agent 协作规范）
-
-**目标**：按照 AGENTS.md 开放标准，为项目撰写一份指导多 agent 协作的规范文件，置于仓库根目录。
-
-**计划**：
-- [x] 研读 agents.md / augmentcode / asdlc.io 等官方规范文档
-- [x] 在仓库根目录创建 `AGENTS.md`，包含：Mission、Toolchain、Judgment Boundaries、Agent Roles、非显然领域规则、Context Map
-- [ ] 提交并推送至 GitHub
+*（暂无进行中的任务。）*
 
 ---
 
@@ -37,6 +30,19 @@
 - [x] 推送合并结果至 `main`
 
 **审查**：仓库现结构为 `frontend/`（Next.js）+ `backend/`（Dart），两套代码共存于同一 `main` 分支。合并冲突仅出现在 `.gitignore`，已取本地更完整版本。
+
+---
+
+### [2026-06-04] 创建项目 AGENTS.md（多 agent 协作规范）
+
+**目标**：按照 AGENTS.md 开放标准，为项目撰写一份指导多 agent 协作的规范文件，置于仓库根目录。
+
+**计划**：
+- [x] 研读 agents.md / augmentcode / asdlc.io 等官方规范文档
+- [x] 在仓库根目录创建 `AGENTS.md`，包含：Mission、Toolchain、Judgment Boundaries、Agent Roles、非显然领域规则、Context Map
+- [x] 提交并推送至 GitHub
+
+**审查**：AGENTS.md 已按开放标准撰写（141 行，人工维护）。涵盖 4 个 agent 角色定义（Frontend/Backend/Planning/Review）、三层权限边界（🚫/⚠️/✅）、5 条非显然领域规则（basis、保本价、real-time 定义、农机边界、data-driven 可扩展性）。已推送至 GitHub。
 
 ---
 
