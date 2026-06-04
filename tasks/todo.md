@@ -6,7 +6,14 @@
 
 ## 进行中
 
-*（暂无进行中的任务。）*
+### [2026-06-04] 创建项目 AGENTS.md（多 agent 协作规范）
+
+**目标**：按照 AGENTS.md 开放标准，为项目撰写一份指导多 agent 协作的规范文件，置于仓库根目录。
+
+**计划**：
+- [x] 研读 agents.md / augmentcode / asdlc.io 等官方规范文档
+- [x] 在仓库根目录创建 `AGENTS.md`，包含：Mission、Toolchain、Judgment Boundaries、Agent Roles、非显然领域规则、Context Map
+- [ ] 提交并推送至 GitHub
 
 ---
 
