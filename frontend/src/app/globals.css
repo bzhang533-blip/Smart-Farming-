@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/*
+  Unlayered :root beats @layer theme — this is where overrides actually land.
+  Warm American farmland palette: parchment canvas, earth-tone grays, field green.
+*/
+:root {
+  /* Page background + body text */
+  --background: #F7F3EC;
+  --foreground: #1C1308;
+
+  /* Warm earth gray — replaces Tailwind's cool gray */
+  --color-gray-50:  #F7F3EC;
+  --color-gray-100: #EDE6D6;
+  --color-gray-200: #DDD3BB;
+  --color-gray-300: #C9B99E;
+  --color-gray-400: #A89278;
+  --color-gray-500: #8B7458;
+  --color-gray-600: #6B5740;
+  --color-gray-700: #4E3E28;
+  --color-gray-800: #342814;
+  --color-gray-900: #1C1308;
+  --color-gray-950: #110C04;
+
+  /* Field green — replaces Tailwind's blue (links, buttons, active nav) */
+  --color-blue-50:  #EEF5EB;
+  --color-blue-100: #D4E9CC;
+  --color-blue-200: #ABCF9E;
+  --color-blue-300: #7EB56F;
+  --color-blue-400: #5A9A49;
+  --color-blue-500: #3E7F31;
+  --color-blue-600: #306525;
+  --color-blue-700: #244D1B;
+  --color-blue-800: #183612;
+  --color-blue-900: #0E2109;
+
+  /* Warm clay — replaces Tailwind's slate (HOLD badge) */
+  --color-slate-50:  #F5F0EA;
+  --color-slate-100: #EAE2D8;
+  --color-slate-200: #D8CDB8;
+  --color-slate-500: #7E6C52;
+  --color-slate-600: #5F5039;
+  --color-slate-700: #433826;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
