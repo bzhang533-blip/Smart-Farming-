@@ -32,9 +32,9 @@ export const COST_CATEGORY_LABELS: Record<CostCategory, string> = {
 };
 
 export const COST_CATEGORY_HINTS: Record<CostCategory, string> = {
-  direct: "种子、化肥、农药、人工、燃油等当季可变投入",
-  capital: "土地（P&I + 租金 + 地税）与农机（P&I + 租赁）",
-  netFamilyLiving: "max(0, 家庭生活支出 − 非农收入)，只有缺口才计入成本",
+  direct: "Seed, fertilizer, chemicals, labor, fuel — variable inputs for the season",
+  capital: "Land (P&I + rent + RE taxes) and machinery (P&I + lease)",
+  netFamilyLiving: "max(0, family living − non-farm income) — only the shortfall is counted as cost",
 };
 
 export const COST_ITEM_CATALOG: CostItemDef[] = [
