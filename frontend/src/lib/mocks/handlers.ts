@@ -1,7 +1,8 @@
 import { http, HttpResponse } from "msw";
+import type { BreakevenRequest } from "@/types";
 import { mockCashPrices, mockFuturesPrice, mockBasisHistory } from "./data/market";
 import { mockFarmProfile, mockMachinery } from "./data/farm";
-import { mockBreakevenResult } from "./data/breakeven";
+import { breakevenFromRequest } from "./data/breakeven";
 import { mockDashboardResponse } from "./data/dashboard";
 
 export const handlers = [
@@ -33,9 +34,10 @@ export const handlers = [
     HttpResponse.json(mockMachinery)
   ),
 
-  http.post("/api/breakeven/calculate", () =>
-    HttpResponse.json(mockBreakevenResult)
-  ),
+  http.post("/api/breakeven/calculate", async ({ request }) => {
+    const body = (await request.json().catch(() => ({}))) as Partial<BreakevenRequest>;
+    return HttpResponse.json(breakevenFromRequest(body));
+  }),
 
   http.get("/api/dashboard/signals/:farmId", () =>
     HttpResponse.json(mockDashboardResponse)

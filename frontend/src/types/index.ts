@@ -7,14 +7,22 @@ export type {
   BasisHistoryResponse,
 } from "./market";
 export type {
+  CostCategory,
+  CostItem,
   CostStructure,
+  RevenueInputs,
   Field,
   ValueRange,
   Machinery,
   FarmProfile,
   MachineryListResponse,
 } from "./farm";
-export type { BreakevenRequest, BreakevenResult } from "./breakeven";
+export type {
+  BreakevenRequest,
+  CostSubtotals,
+  SensitivityMatrix,
+  BreakevenResult,
+} from "./breakeven";
 export type {
   SignalType,
   DashboardSignal,
