@@ -137,19 +137,27 @@
       "aph": 185
     }
   ],
-  "costStructure": {
-    "seedCostPerAcre": 110,
-    "fertilizerCostPerAcre": 95,
-    "chemicalCostPerAcre": 40,
-    "landRentPerAcre": 230,
-    "machineryDepreciationPerAcre": 55,
-    "laborCostPerAcre": 20,
-    "otherCostPerAcre": 15
-  }
+  "costStructure": [
+    { "key": "seed-plants-treated", "category": "direct", "valuePerAcre": 135 },
+    { "key": "fertilizer-lime", "category": "direct", "valuePerAcre": 200 },
+    { "key": "land-cost", "category": "capital", "valuePerAcre": 265 },
+    { "key": "machinery-cost", "category": "capital", "valuePerAcre": 65 },
+    { "key": "family-living-expense", "category": "netFamilyLiving", "valuePerAcre": 0 },
+    { "key": "non-farm-income-wages", "category": "netFamilyLiving", "valuePerAcre": 0 }
+  ]
 }
 ```
 
-> TODO: 待后端确认 — 成本字段是"每英亩"还是"总量"？如何支持多字段不同成本？
+> `costStructure` 由扁平字段改为**分类成本项数组**（吸收自 Compeer Grain Margin Manager，
+> 全量科目见 `tasks/domain-cost-model.md` 与前端 `config/costModel.ts` 的 `COST_ITEM_CATALOG`）。
+> - `category`: `"direct"` | `"capital"` | `"netFamilyLiving"`
+> - `key`: 与 `COST_ITEM_CATALOG` 同源；`non-farm-income-wages` 在 netFamilyLiving 内为抵减项（sign = -1）
+> - `valuePerAcre`: 每英亩金额（USD）
+>
+> TODO: 待后端确认 —
+> 1. 成本字段确认为"每英亩"。
+> 2. 是否需要按**作物**分别维护成本结构（玉米/大豆默认值不同）？当前 MVP 为农场级单套，前端按首块地作物兜底。
+> 3. 科目 `key` 枚举集是否由后端下发（便于加项时不改前端）？
 
 ---
 
@@ -215,7 +223,7 @@
 
 ### POST /api/breakeven/calculate
 
-计算指定字段的保本价（权威计算在后端）。
+计算指定字段的保本价、每英亩盈亏与 price×yield 敏感性矩阵（权威计算在后端）。
 
 **Request Body**
 
@@ -224,9 +232,19 @@
   "farmId": "string",
   "fieldId": "string",
   "crop": "corn",
-  "season": "2026"
+  "season": "2026",
+  "costItems": [
+    { "key": "fertilizer-lime", "category": "direct", "valuePerAcre": 200 }
+  ],
+  "aph": 210,
+  "zip": "50126",
+  "govtPaymentPerAcre": 0,
+  "cashPrice": 4.85
 }
 ```
+
+> TODO: 待后端确认 — 输入新增 `costItems`(成本明细)+ `aph`(单产)+ `zip`(用于解析本地现金价)+ 可选 `govtPaymentPerAcre` / `cashPrice`。
+> 待确认:这些输入是随请求提交,还是后端从农场档案按 `farmId/fieldId` 读取？`cashPrice` 缺省时后端按 `zip` 解析当日本地现金价(非期货价)。
 
 **Response 200**
 
@@ -235,17 +253,37 @@
   "fieldId": "string",
   "crop": "corn",
   "season": "2026",
-  "breakevenPrice": 4.21,
-  "totalCostPerAcre": 565,
-  "aph": 185,
-  "currentCashPrice": 4.52,
-  "profitPerBushel": 0.31,
-  "profitPerAcre": 57.35,
-  "profitMarginPct": 7.4
+  "breakevenPrice": 4.53,
+  "totalCostPerAcre": 952,
+  "aph": 210,
+  "currentCashPrice": 4.85,
+  "totalRevenuePerAcre": 1018.5,
+  "profitPerBushel": 0.32,
+  "profitPerAcre": 66.5,
+  "netMarginPerAcre": 66.5,
+  "profitMarginPct": 7.0,
+  "subtotals": {
+    "directTotal": 622,
+    "capitalTotal": 330,
+    "netFamilyLiving": 0
+  },
+  "sensitivityMatrix": {
+    "yieldAxis": [180, 190, 200, 210, 220, 230, 240],
+    "priceAxis": [3.85, 4.1, 4.35, 4.6, 4.85, 5.1, 5.35, 5.6, 5.85],
+    "cells": [[-259, -240.5, -222, "…"]]
+  }
 }
 ```
 
-> TODO: 待后端确认 — 保本公式：`breakevenPrice = totalCostPerAcre / aph`，前端做轻量预览可用此公式，但展示的权威数字以此接口返回为准。
+> 保本公式:`breakevenPrice = totalCostPerAcre / aph`(已用竞品 952/210=4.533 验证);
+> 净利/acre = `totalRevenuePerAcre − totalCostPerAcre`;Net Family Living = `max(0, 家庭生活 − 非农收入)`。
+> 前端 `lib/breakeven/preview.ts` 用同一公式做录入即时预览(**非权威**),展示的最终数字以本接口为准。
+>
+> TODO: 待后端确认 —
+> 1. `subtotals`(direct / capital / netFamilyLiving 每英亩小计)。
+> 2. `sensitivityMatrix`:`cells[priceIndex][yieldIndex]` = 每英亩净利润;轴步长/延展由作物配置决定
+>    (corn 单产步长 10 ±3、价格步长 0.25 ±4;soybean 单产步长 4、价格步长 0.5),是否由后端下发轴定义？
+> 3. 单产=0 / 英亩=0 时必须返回安全值(0 或 null),不得出现 `#DIV/0!` / NaN(竞品已知缺陷)。
 
 ---
 
@@ -285,3 +323,4 @@
 | 日期 | 变更内容 | 状态 |
 |------|----------|------|
 | 2026-06-04 | 初始草稿，全部待后端确认 | TODO |
+| 2026-06-07 | 吸收 Compeer Grain Margin Manager：`costStructure` 改分类成本项数组；breakeven 接口输入加 `costItems/aph/zip`、输出加 `subtotals/sensitivityMatrix/netMarginPerAcre/totalRevenuePerAcre` | TODO |

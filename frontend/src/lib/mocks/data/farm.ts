@@ -1,4 +1,5 @@
 import type { FarmProfile, MachineryListResponse } from "@/types";
+import { buildDefaultCostItems } from "@/config/costModel";
 
 export const mockFarmProfile: FarmProfile = {
   farmId: "farm-001",
@@ -11,7 +12,7 @@ export const mockFarmProfile: FarmProfile = {
       acres: 320,
       zip: "50126",
       crop: "corn",
-      aph: 185,
+      aph: 210,
     },
     {
       fieldId: "field-002",
@@ -19,18 +20,12 @@ export const mockFarmProfile: FarmProfile = {
       acres: 240,
       zip: "50126",
       crop: "soybean",
-      aph: 52,
+      aph: 60,
     },
   ],
-  costStructure: {
-    seedCostPerAcre: 110,
-    fertilizerCostPerAcre: 95,
-    chemicalCostPerAcre: 40,
-    landRentPerAcre: 230,
-    machineryDepreciationPerAcre: 55,
-    laborCostPerAcre: 20,
-    otherCostPerAcre: 15,
-  },
+  // 农场级成本结构，按玉米默认值兜底（分类项）。
+  // TODO: 待后端确认是否需要按作物分别维护成本（见 api-contracts.md）。
+  costStructure: buildDefaultCostItems("corn"),
 };
 
 export const mockMachinery: MachineryListResponse = {
