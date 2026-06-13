@@ -2,28 +2,20 @@ import Link from "next/link";
 
 const FEATURES = [
   {
-    href: "/dashboard",
-    icon: "📊",
-    title: "Decision Cockpit",
-    description:
-      "Per-field sell, hold, or watch signals based on your real local cash price vs. your actual breakeven — not futures.",
-    cta: "View Dashboard",
-  },
-  {
     href: "/farm",
     icon: "🌾",
-    title: "Your Farm Profile",
+    title: "Enter Your Farm",
     description:
-      "Enter your costs once and reuse them each season. Breakeven price updates automatically as you refine your inputs.",
+      "Yield, the cash price you can get locally, and your costs — pre-filled with regional defaults, so you edit only what's different. Reuse it each season.",
     cta: "Set Up Farm",
   },
   {
-    href: "/market",
-    icon: "📈",
-    title: "Market Data",
+    href: "/breakeven",
+    icon: "📐",
+    title: "See Your Breakeven",
     description:
-      "Today's local elevator cash prices, CME futures reference, and 6-month basis history so you know if the basis is strengthening.",
-    cta: "Check Prices",
+      "Per-acre P&L, the price you must sell at to break even, and a price × yield heatmap you can drag to watch your margin move.",
+    cta: "Run the Numbers",
   },
 ];
 
@@ -34,27 +26,28 @@ export default function OverviewPage() {
       {/* Hero */}
       <section className="flex flex-col gap-6">
         <p className="text-sm font-medium text-blue-600 tracking-wide uppercase">
-          Corn Belt · Iowa · Illinois · Indiana
+          Corn Belt · Corn &amp; Soybeans
         </p>
         <h1 className="text-4xl font-bold text-gray-900 leading-tight max-w-xl">
-          Know exactly when to sell.
+          What do I need to sell at to make money?
         </h1>
         <p className="text-lg text-gray-600 max-w-2xl leading-relaxed">
-          Smart Farm turns your cost data and local cash prices into clear
-          sell / hold / watch signals — so you stop guessing and start deciding.
+          Smart Farm is a simple profit &amp; breakeven calculator. Enter a few numbers
+          and instantly see your per-acre margin and the price you need to clear — no
+          clunky spreadsheet required.
         </p>
         <div className="flex items-center gap-4">
           <Link
-            href="/dashboard"
+            href="/farm"
             className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
           >
-            Open Dashboard →
+            Start with your farm →
           </Link>
           <Link
-            href="/farm"
+            href="/breakeven"
             className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
           >
-            Set up your farm first
+            Jump to breakeven
           </Link>
         </div>
       </section>
@@ -62,7 +55,7 @@ export default function OverviewPage() {
       {/* How it works */}
       <section className="flex flex-col gap-6">
         <h2 className="text-xl font-semibold text-gray-900">How it works</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {FEATURES.map(({ href, icon, title, description, cta }) => (
             <div
               key={href}
@@ -89,17 +82,17 @@ export default function OverviewPage() {
         <h2 className="text-base font-semibold text-gray-900 mb-4">Why it matters</h2>
         <blockquote className="border-l-4 border-blue-600 pl-5">
           <p className="text-gray-700 leading-relaxed">
-            The difference between a profitable season and a loss often comes down to one
-            decision: <strong>when to sell.</strong> Most tools show you the futures price.
-            Smart Farm shows you whether your local elevator&apos;s cash price clears your
-            actual breakeven — field by field, today.
+            The breakeven price is the whole game: <strong>total cost per acre ÷ your
+            yield.</strong> Compare it against the cash price your local elevator is
+            actually paying — not a futures quote — and you know in one number whether
+            this crop is in the black.
           </p>
         </blockquote>
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
           {[
-            { label: "Breakeven formula", value: "Total cost ÷ APH yield" },
-            { label: "Basis definition",  value: "Cash price − futures" },
-            { label: "MVP coverage",      value: "Corn & soybean · IA / IL / IN" },
+            { label: "Breakeven formula", value: "Total cost ÷ yield" },
+            { label: "Compared against", value: "Your local cash price" },
+            { label: "Coverage",         value: "Corn & soybeans" },
           ].map(({ label, value }) => (
             <div key={label} className="flex flex-col gap-0.5">
               <span className="text-xs text-gray-400 uppercase tracking-wide">{label}</span>

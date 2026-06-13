@@ -37,7 +37,7 @@ export interface BreakevenResult {
   fieldId: string;
   crop: Crop;
   season: Season;
-  breakevenPrice: number;      // $/bu — authoritative from backend；= 总成本/acre ÷ 单产
+  breakevenPrice: number;      // $/bu — 前端 TS 引擎计算(唯一权威实现)；= 总成本/acre ÷ 单产
   totalCostPerAcre: number;    // $
   aph: number;                 // bu/acre
   currentCashPrice: number;    // $/bu — local cash price, NOT futures

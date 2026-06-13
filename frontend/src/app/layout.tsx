@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Smart Farm",
-  description: "Farm profit planning and decision dashboard for corn/soybean producers",
+  description: "A simple profit & breakeven calculator for corn/soybean growers",
 };
 
 export default function RootLayout({

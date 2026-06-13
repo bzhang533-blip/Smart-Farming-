@@ -11,7 +11,7 @@ interface SensitivityConfig {
 interface CropConfig {
   label: string;
   unit: string;          // yield unit
-  futuresSymbol: string; // CME symbol（仅展示，不用于盈亏权威计算）
+  futuresSymbol: string; // CME symbol —— v1 不用(行情/期货为 v1 OUT);仅作以后扩展占位,盈亏一律用农户手填现金价
   // 录入兜底默认值（源自 Compeer Grain Margin Manager，见 tasks/domain-cost-model.md）
   revenueDefaults: {
     aph: number;                // 单产 bu/acre
