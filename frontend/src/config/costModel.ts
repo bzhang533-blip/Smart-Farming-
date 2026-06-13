@@ -6,7 +6,8 @@ import type { CostCategory, CostItem } from "@/types";
  *
  * 来源：Compeer Grain Margin Manager —— `Farm Margin Manager` sheet，
  * 见 `tasks/domain-cost-model.md`。每个科目的默认值是「玉米带平均水平」占位，
- * 仅作前端录入兜底；展示给用户的权威保本/盈亏数字以后端契约为准。
+ * 仅作前端录入兜底（后端 `GET /defaults` 也会下发，可覆盖这里的占位值）。
+ * 保本/盈亏的权威计算在前端 TS 引擎（`lib/breakeven/`），后端不算账（CLAUDE.md §2）。
  *
  * 加一种作物 = 在每个 `defaults` 里加一列；加一个成本项 = 在数组里加一条。
  * 严禁在组件里硬编码科目/标签/默认值。

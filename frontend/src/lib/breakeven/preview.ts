@@ -10,15 +10,15 @@ import { CROP_CONFIG } from "@/config/crops";
 import { costItemSign } from "@/config/costModel";
 
 /**
- * ⚠️ 非权威预览引擎（NON-AUTHORITATIVE）。
+ * v1 财务计算引擎 —— **唯一权威实现**（见 CLAUDE.md §2 计算归属）。
  *
- * 镜像 Compeer Grain Margin Manager 的公式（见 tasks/domain-cost-model.md），
- * 仅用于：(1) 成本录入时的即时预览；(2) 驱动 MSW mock 数据。
- *
- * 展示给用户的权威保本/盈亏数字必须来自后端 `POST /api/breakeven/calculate`。
- * 本文件不得被当作财务真理来源。
+ * margin、保本价、price×yield 敏感性网格全部在这里用纯 TS 函数计算，后端不算账。
+ * 理由：(1) 敏感性拖动要实时重算、不走后端往返；(2) 只保留一份公式，避免 TS/Dart 双份飘掉。
+ * 公式镜像 Compeer Grain Margin Manager（见 tasks/domain-cost-model.md），签名见 docs/v1-alignment.md §7。
  *
  * 所有除法均做 0 守卫（修复竞品 #DIV/0! 脆弱：单产=0 时返回安全值，不产生 NaN/Infinity）。
+ *
+ * 注：函数仍沿用 `…Preview` 命名（历史遗留），不影响其权威地位；重命名为可选后续。
  */
 
 const round2 = (n: number) => Math.round(n * 100) / 100;

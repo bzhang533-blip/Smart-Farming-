@@ -1,320 +1,147 @@
-# API Contracts
+# API Contracts (v1)
 
 > 本文件记录前后端约定的 REST/JSON 接口契约。
-> 前端类型定义（`lib/api/`）与此文件同源，改一处必须对齐另一处。
-> 标注 `TODO: 待后端确认` 的条目尚未与后端对齐，前端使用 mock 数据推进。
+> 前端类型定义(`lib/api/`)与本文件、`docs/v1-alignment.md` **同源**,改一处必须对齐另外两处。
+> 标注 `TODO: 待后端确认` 的条目尚未与后端对齐,前端使用 mock(MSW)推进。
+
+---
+
+## 0. v1 范围(先读 CLAUDE.md §0)
+
+v1 = 一个最简单的**单作物盈亏计算器**。后端在 v1 里只做两件事:
+
+1. **`GET /defaults`** —— 下发各项成本 / 收入的**默认值**(带地区/作物维度,可被农户覆盖)。
+2. **场景持久化** —— 存 / 读 / 列出农户保存的 Scenario。
+
+**后端不算账。** margin、保本价、price×yield 敏感性网格**全部在前端 TS 计算引擎里实现,是唯一实现**(`frontend/src/lib/breakeven/`,纯函数,签名见 `docs/v1-alignment.md` §7)。前端不会调用、后端也不应提供任何「算好的 margin」端点 —— 因为敏感性拖动要实时重算、不走后端往返,且只保留一份公式实现,避免 TS / Dart 双份公式飘掉。
+
+**v1 不存在的端点(不要建)**:行情 / 期货 / basis、breakeven 计算、卖买信号 / 决策驾驶舱。现金价是农户手填输入,v1 不接任何实时数据源。
 
 ---
 
 ## 约定
 
 - Base URL: `TBD`
-- 所有请求/响应使用 `Content-Type: application/json`
-- 金额单位：USD（美元），保留 2 位小数
-- 产量单位：bu/acre（蒲式耳/英亩）
-- 面积单位：acres（英亩）
-- 作物类型：`"corn"` | `"soybean"`
-- 州：`"IA"` | `"IL"` | `"IN"`（MVP 范围）
+- 所有请求 / 响应使用 `Content-Type: application/json`
+- 金额单位:USD(美元),保留 2 位小数
+- 产量单位:bu/acre(蒲式耳 / 英亩)
+- 面积单位:acres(英亩)
+- 作物类型:`"corn"` | `"soybean"`(预留 `"other"` 槽)
+- 成本科目分类:`"direct"` | `"capital"` | `"netFamilyLiving"`;科目 `key` 与前端 `config/costModel.ts` 的 `COST_ITEM_CATALOG` 同源
 
 ---
 
-## 1. 市场数据层
+## 1. 默认值
 
-### GET /api/market/cash-prices
+### GET /defaults
 
-获取指定州/作物的本地现金价（按天/小时更新）。
+下发录入表单的兜底默认值(成本科目 + 收入侧),农户可逐项覆盖。这是后端在 v1 里**唯一的「读」职责**。
 
 **Query Parameters**
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| `state` | `string` | 州代码（IA / IL / IN） |
-| `crop` | `string` | 作物类型（corn / soybean） |
-| `zip` | `string?` | 可选，按 ZIP 精确匹配粮库 |
+| `crop` | `string?` | 作物类型(corn / soybean);缺省返回全部作物 |
+| `region` | `string?` | 地区代码,用于地区化默认值;缺省返回通用「玉米带平均」占位值 |
 
 **Response 200**
 
 ```json
 {
-  "state": "IA",
-  "crop": "corn",
-  "updatedAt": "2026-06-04T10:00:00Z",
-  "prices": [
-    {
-      "elevatorId": "string",
-      "elevatorName": "string",
-      "zip": "string",
-      "cashPrice": 4.52,
-      "futuresMonth": "ZCZ26",
-      "basis": -0.18
+  "region": "corn-belt",
+  "crops": {
+    "corn": {
+      "revenueDefaults": { "aph": 210, "cashPrice": 4.2, "govtPaymentPerAcre": 0 },
+      "costItems": [
+        { "key": "seed-plants-treated", "category": "direct", "valuePerAcre": 135 },
+        { "key": "fertilizer-lime", "category": "direct", "valuePerAcre": 200 },
+        { "key": "land-cost", "category": "capital", "valuePerAcre": 265 },
+        { "key": "machinery-cost", "category": "capital", "valuePerAcre": 65 },
+        { "key": "family-living-expense", "category": "netFamilyLiving", "valuePerAcre": 0 },
+        { "key": "non-farm-income-wages", "category": "netFamilyLiving", "valuePerAcre": 0 }
+      ]
     }
-  ]
-}
-```
-
-> TODO: 待后端确认 — `futuresMonth` 格式、`basis` 是后端算好还是前端算？
-
----
-
-### GET /api/market/futures
-
-获取玉米(ZC)/ 大豆(ZS)期货价格（展示用，不用于盈亏权威计算）。
-
-**Query Parameters**
-
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `symbol` | `string` | `ZC` 或 `ZS` |
-| `contract` | `string?` | 合约月份，如 `ZCZ26` |
-
-**Response 200**
-
-```json
-{
-  "symbol": "ZC",
-  "contract": "ZCZ26",
-  "price": 4.70,
-  "updatedAt": "2026-06-04T10:00:00Z"
-}
-```
-
-> TODO: 待后端确认 — 数据源（CME / 第三方）、更新频率。
-
----
-
-### GET /api/market/basis-history
-
-获取 basis 时间序列（`cash − futures`），用于 basis 预警。
-
-**Query Parameters**
-
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `state` | `string` | 州代码 |
-| `crop` | `string` | 作物类型 |
-| `zip` | `string?` | 可选 |
-| `from` | `string` | ISO 日期，如 `2025-01-01` |
-| `to` | `string` | ISO 日期 |
-
-**Response 200**
-
-```json
-{
-  "state": "IA",
-  "crop": "corn",
-  "zip": "50001",
-  "series": [
-    { "date": "2026-01-01", "basis": -0.20 },
-    { "date": "2026-01-02", "basis": -0.18 }
-  ]
-}
-```
-
-> TODO: 待后端确认 — 历史数据覆盖范围、granularity（日 / 周）。
-
----
-
-## 2. 农场档案层
-
-### GET /api/farm/profile/:farmId
-
-获取农场基本信息与成本结构。
-
-**Response 200**
-
-```json
-{
-  "farmId": "string",
-  "name": "string",
-  "state": "IA",
-  "fields": [
-    {
-      "fieldId": "string",
-      "name": "string",
-      "acres": 320,
-      "zip": "50001",
-      "crop": "corn",
-      "aph": 185
-    }
-  ],
-  "costStructure": [
-    { "key": "seed-plants-treated", "category": "direct", "valuePerAcre": 135 },
-    { "key": "fertilizer-lime", "category": "direct", "valuePerAcre": 200 },
-    { "key": "land-cost", "category": "capital", "valuePerAcre": 265 },
-    { "key": "machinery-cost", "category": "capital", "valuePerAcre": 65 },
-    { "key": "family-living-expense", "category": "netFamilyLiving", "valuePerAcre": 0 },
-    { "key": "non-farm-income-wages", "category": "netFamilyLiving", "valuePerAcre": 0 }
-  ]
-}
-```
-
-> `costStructure` 由扁平字段改为**分类成本项数组**（吸收自 Compeer Grain Margin Manager，
-> 全量科目见 `tasks/domain-cost-model.md` 与前端 `config/costModel.ts` 的 `COST_ITEM_CATALOG`）。
-> - `category`: `"direct"` | `"capital"` | `"netFamilyLiving"`
-> - `key`: 与 `COST_ITEM_CATALOG` 同源；`non-farm-income-wages` 在 netFamilyLiving 内为抵减项（sign = -1）
-> - `valuePerAcre`: 每英亩金额（USD）
->
-> TODO: 待后端确认 —
-> 1. 成本字段确认为"每英亩"。
-> 2. 是否需要按**作物**分别维护成本结构（玉米/大豆默认值不同）？当前 MVP 为农场级单套，前端按首块地作物兜底。
-> 3. 科目 `key` 枚举集是否由后端下发（便于加项时不改前端）？
-
----
-
-### POST /api/farm/profile
-
-创建农场档案。
-
-**Request Body**: 同上 Response 结构（不含 `farmId`）
-
-**Response 201**
-
-```json
-{ "farmId": "string" }
-```
-
----
-
-### PUT /api/farm/profile/:farmId
-
-更新农场档案（支持部分更新）。
-
-**Request Body**: 同 GET Response 结构（所有字段可选）
-
-**Response 200**
-
-```json
-{ "ok": true }
-```
-
----
-
-### GET /api/farm/machinery
-
-获取农机列表（作为成本变量）。
-
-**Query Parameters**: `farmId`
-
-**Response 200**
-
-```json
-{
-  "farmId": "string",
-  "machinery": [
-    {
-      "machineryId": "string",
-      "type": "tractor",
-      "model": "John Deere 8R 370",
-      "purchaseYear": 2022,
-      "purchasePrice": 420000,
-      "estimatedUsefulLifeYears": 15,
-      "annualAcresCovered": 1200,
-      "referenceValueRange": { "low": 310000, "high": 360000 }
-    }
-  ]
-}
-```
-
-> TODO: 待后端确认 — `referenceValueRange` 由后端查参考数据返回，MVP 阶段来源为人工录入区间。
-
----
-
-## 3. 保本引擎
-
-### POST /api/breakeven/calculate
-
-计算指定字段的保本价、每英亩盈亏与 price×yield 敏感性矩阵（权威计算在后端）。
-
-**Request Body**
-
-```json
-{
-  "farmId": "string",
-  "fieldId": "string",
-  "crop": "corn",
-  "season": "2026",
-  "costItems": [
-    { "key": "fertilizer-lime", "category": "direct", "valuePerAcre": 200 }
-  ],
-  "aph": 210,
-  "zip": "50126",
-  "govtPaymentPerAcre": 0,
-  "cashPrice": 4.85
-}
-```
-
-> TODO: 待后端确认 — 输入新增 `costItems`(成本明细)+ `aph`(单产)+ `zip`(用于解析本地现金价)+ 可选 `govtPaymentPerAcre` / `cashPrice`。
-> 待确认:这些输入是随请求提交,还是后端从农场档案按 `farmId/fieldId` 读取？`cashPrice` 缺省时后端按 `zip` 解析当日本地现金价(非期货价)。
-
-**Response 200**
-
-```json
-{
-  "fieldId": "string",
-  "crop": "corn",
-  "season": "2026",
-  "breakevenPrice": 4.53,
-  "totalCostPerAcre": 952,
-  "aph": 210,
-  "currentCashPrice": 4.85,
-  "totalRevenuePerAcre": 1018.5,
-  "profitPerBushel": 0.32,
-  "profitPerAcre": 66.5,
-  "netMarginPerAcre": 66.5,
-  "profitMarginPct": 7.0,
-  "subtotals": {
-    "directTotal": 622,
-    "capitalTotal": 330,
-    "netFamilyLiving": 0
-  },
-  "sensitivityMatrix": {
-    "yieldAxis": [180, 190, 200, 210, 220, 230, 240],
-    "priceAxis": [3.85, 4.1, 4.35, 4.6, 4.85, 5.1, 5.35, 5.6, 5.85],
-    "cells": [[-259, -240.5, -222, "…"]]
   }
 }
 ```
 
-> 保本公式:`breakevenPrice = totalCostPerAcre / aph`(已用竞品 952/210=4.533 验证);
-> 净利/acre = `totalRevenuePerAcre − totalCostPerAcre`;Net Family Living = `max(0, 家庭生活 − 非农收入)`。
-> 前端 `lib/breakeven/preview.ts` 用同一公式做录入即时预览(**非权威**),展示的最终数字以本接口为准。
+> - `costItems` 为**分类成本项数组**(吸收自 Compeer Grain Margin Manager;全量科目 17 direct + 2 capital + 2 netFamilyLiving 见 `tasks/domain-cost-model.md` 与 `config/costModel.ts`)。
+> - `non-farm-income-wages` 在 netFamilyLiving 内为抵减项(sign = -1)。
+> - 土地 / 农机各是**一个可填的 `$/acre` 数字**(`land-cost` / `machinery-cost`),不是计算模块。
 >
 > TODO: 待后端确认 —
-> 1. `subtotals`(direct / capital / netFamilyLiving 每英亩小计)。
-> 2. `sensitivityMatrix`:`cells[priceIndex][yieldIndex]` = 每英亩净利润;轴步长/延展由作物配置决定
->    (corn 单产步长 10 ±3、价格步长 0.25 ±4;soybean 单产步长 4、价格步长 0.5),是否由后端下发轴定义？
-> 3. 单产=0 / 英亩=0 时必须返回安全值(0 或 null),不得出现 `#DIV/0!` / NaN(竞品已知缺陷)。
+> 1. `region` 维度的粒度(州 / ZIP / 通用),以及缺省时返回什么。
+> 2. 科目 `key` 枚举集是否由后端下发(便于加项时不改前端),还是前端 `COST_ITEM_CATALOG` 为准、后端只覆盖数值。
+> 3. 默认值是否按**作物**分别维护(corn / soybean 不同)。
 
 ---
 
-## 4. 决策驾驶舱
+## 2. 场景持久化(Scenario)
 
-### GET /api/dashboard/signals/:farmId
+> Scenario 是「一次完整的录入 + 其结果快照」的可存可读单元。
+> **Scenario schema 的权威定义在 `docs/v1-alignment.md`**(与计算口径同源);下面只给端点形状,请求 / 响应 body 以 v1-alignment.md 的 `Scenario` 为准。
+> 计算结果(margin、保本价、敏感性网格)由前端引擎算出;是否随 Scenario 一并落库,还是只存输入、读取后前端重算,见下方 TODO。
 
-获取卖出信号与 basis 预警。
+### GET /scenarios
+
+列出当前用户保存的场景(摘要)。
 
 **Response 200**
 
 ```json
 {
-  "farmId": "string",
-  "updatedAt": "2026-06-04T10:00:00Z",
-  "signals": [
+  "scenarios": [
     {
-      "fieldId": "string",
+      "id": "string",
+      "name": "2026 Corn — North 80",
       "crop": "corn",
-      "signalType": "sell" | "hold" | "watch",
-      "reason": "string",
-      "currentCashPrice": 4.52,
-      "breakevenPrice": 4.21,
-      "basisAlert": true,
-      "basisVs5YearAvg": 0.05
+      "season": "2026",
+      "updatedAt": "2026-06-13T10:00:00Z"
     }
   ]
 }
 ```
 
-> TODO: 待后端确认 — `signalType` 判定逻辑与阈值由后端定义。
+### GET /scenarios/:id
+
+读取单个场景的完整内容(用于「读场景」回填表单)。
+
+**Response 200**: `Scenario`(完整 schema 见 `docs/v1-alignment.md`)。
+
+### POST /scenarios
+
+保存一个新场景。
+
+**Request Body**: `Scenario`(不含 `id` / `updatedAt`)。
+
+**Response 201**
+
+```json
+{ "id": "string", "updatedAt": "2026-06-13T10:00:00Z" }
+```
+
+### PUT /scenarios/:id
+
+更新已存场景。
+
+**Request Body**: `Scenario`(部分字段可选)。
+
+**Response 200**
+
+```json
+{ "ok": true, "updatedAt": "2026-06-13T10:05:00Z" }
+```
+
+### DELETE /scenarios/:id
+
+删除场景。
+
+**Response 204**: 无 body。
+
+> TODO: 待后端确认 —
+> 1. 用户 / 农场归属:Scenario 如何关联到某个用户(鉴权方式)?v1 是否需要多用户?
+> 2. Scenario body 是**只存输入**(成本项 + 收入 + 作物 / 季 / 面积),读取后前端重算;还是连**算好的结果快照**(margin / breakeven / 敏感性)一并落库?推荐只存输入 —— 计算只有前端一份实现,落库结果会和公式飘掉。
+> 3. `Scenario` 完整字段 / 类型以 `docs/v1-alignment.md` 为准,改动需同步本文件与 `frontend/src/types/`。
 
 ---
 
@@ -322,5 +149,6 @@
 
 | 日期 | 变更内容 | 状态 |
 |------|----------|------|
-| 2026-06-04 | 初始草稿，全部待后端确认 | TODO |
-| 2026-06-07 | 吸收 Compeer Grain Margin Manager：`costStructure` 改分类成本项数组；breakeven 接口输入加 `costItems/aph/zip`、输出加 `subtotals/sensitivityMatrix/netMarginPerAcre/totalRevenuePerAcre` | TODO |
+| 2026-06-04 | 初始草稿(决策驾驶舱模型:市场数据 / 后端 breakeven 计算 / 决策信号),全部待后端确认 | 已废弃 |
+| 2026-06-07 | 吸收 Compeer:costStructure 改分类成本项数组;breakeven 接口加 costItems/aph/zip + subtotals/sensitivityMatrix | 已废弃 |
+| 2026-06-13 | **重写为 v1 surface**:删市场数据层 / 后端 breakeven 计算端点 / 决策驾驶舱信号(均移出 v1 范围);改为 `GET /defaults` + Scenario 持久化(CRUD);明确计算引擎在前端 TS 唯一实现、后端不算账;Scenario schema 以 `docs/v1-alignment.md` 为准 | TODO |

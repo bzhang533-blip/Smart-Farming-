@@ -6,7 +6,7 @@
 
 ## 进行中
 
-*（暂无进行中的任务。）*
+*(暂无进行中的任务。)*
 
 ---
 
@@ -17,6 +17,51 @@
 ---
 
 ## 已完成
+
+### [2026-06-13] 删除旧模型(market / dashboard),只留 v1 核心
+
+**目标**：用户确认 `docs/v1-alignment.md` 已在 docs 目录(用户亲自写,§6 契约 + §7 计算签名)。删掉所有旧模型功能代码,只保留核心(农场录入 → 保本输出)。breakeven 数据流暂不动(later)。
+
+**完成项**：
+- [x] 确认 `docs/v1-alignment.md` 存在(9.3KB,Scenario schema + 计算口径 + sanity 值 corn −$70 / soybeans −$72)
+- [x] 删除 market 旧模型:`app/market` `components/market/*` `types/market.ts` `lib/api/market.ts` `lib/mocks/data/market.ts`
+- [x] 删除 dashboard 旧模型:`app/dashboard` `components/dashboard/*` `types/dashboard.ts` `lib/api/dashboard.ts` `lib/mocks/data/dashboard.ts`
+- [x] 修复引用:`NavBar`(去 Dashboard/Market 链接)、`types/index.ts`(去 market/dashboard 再导出)、`handlers.ts`(去 market/dashboard handler,保留 breakeven + farm)、`app/page.tsx`(整页从「决策驾驶舱」重写为 v1 计算器概览)、`layout.tsx`(描述)
+- [x] 保留核心:`app/farm` `app/breakeven` `components/farm/*` `components/breakeven/*` `lib/breakeven/*` `config/*` `types/{farm,breakeven,common}` 及其 mock
+- [x] `AGENTS.md` Context Map 注解更新(market/dashboard 已删)
+
+**验证**：`npx tsc --noEmit` 通过(清 `.next` 后 exit 0)、`npm run lint` 通过、`npm run build` 成功 —— 路由现仅剩 `/` `/farm` `/breakeven`(+ _not-found)。
+
+**按用户要求 hold(later)**：
+- breakeven 数据流仍走 `POST /api/breakeven/calculate`(`lib/api/breakeven.ts` + `mocks/handlers.ts`),未改为直调本地引擎 —— 用户说稍后再弄。
+
+**发现的待办(schema 不一致,留待 breakeven 回合处理)**：`docs/v1-alignment.md` 与现有前端代码在命名上不一致 —— 作物 `"soybeans"`(doc)vs `"soybean"`(code);成本 key 下划线 `seed`/`fuel_oil`(doc)vs 短横 `seed-plants-treated`/`gas-fuel-oil`(code);`CostLine{value,source}`(doc)vs `CostItem{valuePerAcre}`(code);`Scenario`/`CropEntry` 结构(doc)vs 现有 `FarmProfile`(code)。需在「回到 breakeven」时统一对齐 schema + `tasks/api-contracts.md`。
+
+---
+
+### [2026-06-13] 把项目文件对齐到重写后的 v1 CLAUDE.md
+
+**目标**：用户重新梳理项目思路与框架,把 CLAUDE.md 从「决策驾驶舱(实时行情 + basis + 卖买信号 + 后端权威计算)」收窄为「v1 单作物盈亏计算器(现金价手填、计算引擎在前端 TS 唯一实现、后端只给 `GET /defaults` + 存读场景)」。把其余项目文件对齐到新框架。`docs/v1-alignment.md` 由用户自己写,本任务不碰。
+
+**完成项**：
+- [x] `CLAUDE.md` §7:占位命令替换为 `package.json` 真实命令(npm;无 typecheck/test 脚本,如实标注)
+- [x] `tasks/api-contracts.md`:**整文件重写**为 v1 surface —— 删市场数据层 / 后端 breakeven 计算端点 / 决策驾驶舱信号;改为 `GET /defaults` + Scenario 持久化(CRUD),Scenario schema 指向 v1-alignment.md;旧契约在变更日志标「已废弃」
+- [x] `tasks/domain-cost-model.md`:修「财务计算权威在后端 Dart」「差异化在实时本地数据」两处定性,加 v1 注解
+- [x] 前端代码注释(非破坏):`preview.ts` 头(改为「唯一权威实现」)、`costModel.ts`、`crops.ts`(futuresSymbol 标 v1 OUT)、`types/breakeven.ts`(breakevenPrice 注释)
+- [x] `README.md`:重写为 v1 计算器定位
+- [x] `AGENTS.md`:重写为 v1;Backend Agent 改为「不算账,只 GET /defaults + 存场景」;领域规则去 basis/real-time,加「计算在前端 TS」
+- [x] `tasks/lessons.md`:新增 L-002(框架重写后全仓排查衍生定性)
+
+**验证**：grep 关键定性词(权威/authoritative/backend single source/breakeven calculate)全仓复查,确认所有衍生**文档与代码注释**已与 v1 对齐;残留命中均为正确的新表述或带「已废弃」标记的历史记录。
+
+**范围外 / 未做(留给用户决策或后续)**：
+1. **未创建 `docs/v1-alignment.md`** —— 用户自己写(本任务前提)。它是 §7 计算签名 + Scenario schema 的真理源,其余文件已指向它。
+2. **未删除前端 v1-OUT 功能代码**:`app/market` `app/dashboard` `components/market` `components/dashboard` `types/market.ts` `types/dashboard.ts` `lib/api/{market,dashboard}.ts` 及对应 mock。删除是破坏性操作 → ASK FIRST。
+3. **未改前端 breakeven 数据流**:`lib/api/breakeven.ts` + `mocks/handlers.ts` 仍走 `POST /api/breakeven/calculate`(后端算账模型)。v1 应让 `/breakeven` 页直接调本地引擎(`lib/breakeven/`),不走后端往返。属运行时行为改动 → 需单独立项重构(建议下一步)。
+4. **未重命名** `lib/breakeven/preview.ts` 及其 `…Preview` 导出(跨组件引用,纯重构,可选)。
+5. **未碰任何 backend / Dart 代码**(角色边界)。
+
+---
 
 ### [2026-06-07] 吸收 Compeer Grain Margin Manager,落地分类成本模型 + 保本/敏感性前端
 

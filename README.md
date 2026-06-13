@@ -1,7 +1,7 @@
-# Smart Farm — 农场盈亏决策驾驶舱
+# Smart Farm — 农场盈亏计算器
 
-> A profit-planning cockpit for U.S. small and mid-sized farms.
-> 为美国中小型农场打造的盈亏规划与决策工具。
+> A simple, low-friction profit & breakeven calculator for U.S. Corn Belt farms.
+> 为美国玉米带农场打造的、好上手的单作物盈亏 / 保本计算器。
 
 ---
 
@@ -9,215 +9,157 @@
 
 ### What is Smart Farm?
 
-Smart Farm is a decision-support tool that helps corn and soybean farmers in the U.S. Corn Belt answer one question every season:
+Smart Farm (v1) is a **single-crop profit & breakeven calculator** for corn and soybean growers in the U.S. Corn Belt. A farmer enters a few numbers — yield, the cash price they can get locally, and their costs — and instantly sees **what price they need to break even, and whether they're in the black**.
 
-**"Should I sell now — and is this machine worth buying?"**
+The goal is simple: be **easier to use than the clunky spreadsheets farmers use today**, while getting the breakeven math right.
 
-It pulls together futures prices, local elevator cash prices, and your farm's actual cost structure to give you a real breakeven number in your local currency, compared against what your nearest grain elevator is paying today.
+### How it works
 
-### The Problem We Solve
+```
+Farmer input  →  Calc engine (pure TS functions)  →  Output (P&L · breakeven · sensitivity heatmap)
+      ↑                                                            ↓
+Backend GET /defaults (default values)              Backend save / load scenarios
+```
 
-Most small farms still track costs in spreadsheets and check prices by calling their elevator. Knowing whether today's cash price covers your true cost-per-bushel requires juggling:
+- **The calculation engine is the frontend's job** (TypeScript, single source of truth). The backend does **not** compute margins — it only serves default values and stores scenarios. This keeps the sensitivity sliders instant and avoids two copies of the formula drifting apart.
+- **Cash price is entered by hand.** v1 connects to no live market feed.
 
-- Local cash price (which includes basis, not just the CME futures quote)
-- Your real cost per acre — seed, fertilizer, land rent, equipment, operating loans
-- Your historical yield (APH) for your specific fields
+### What's in v1
 
-Smart Farm connects these dots automatically and surfaces a clear **sell / hold / watch** signal.
+| Area | v1 |
+|------|----|
+| Crops | Corn · Soybean (an `other` slot is reserved) |
+| Input | Yield (APH or expected), **hand-entered cash price**, itemized costs (with editable regional defaults), land & machinery as a single `$/acre` number each |
+| Output | Per-acre P&L card · breakeven price / yield · net margin · whole-farm dollar totals · **interactive price × yield sensitivity heatmap** · save / load scenarios |
 
-### MVP Scope
+### Explicitly NOT in v1
 
-| Dimension | Coverage |
-|-----------|----------|
-| States | Iowa (IA) · Illinois (IL) · Indiana (IN) |
-| Crops | Corn · Soybean |
-| Data freshness | Cash prices updated daily / hourly |
-| Futures source | CME ZC (corn) · ZS (soybean) |
+Live quotes / futures / basis, buy-sell signals, alerts, a decision cockpit, rotation advice, marketing logs, insurance, machinery depreciation engines, PDF reports. Machinery and land are **cost variables (one number)**, not appraisal modules — we never scrape TractorHouse / Sandhills.
 
-The architecture is data-driven — adding a new state or crop requires only a config change, not code changes.
-
-### Core Features
-
-**Market Data**
-- Local elevator cash prices by ZIP code
-- Live CME futures (ZC / ZS)
-- Basis tracking (cash − futures) as a time series per region
-
-**Farm Profile**
-- Field-by-field cost entry: seed, fertilizer, land rent, equipment, operating interest
-- APH (Actual Production History) per field
-- Machinery cost modeling (cost-per-acre impact, payback period)
-
-**Breakeven Engine**
-- True breakeven price = total cost per acre ÷ yield
-- Always compared against your local cash price, never the futures quote alone
-- Profit/loss visualization per field and per crop
-
-**Decision Dashboard**
-- Sell signal cards with basis alerts
-- Crop rotation guidance
-- Season-over-season comparison
+The architecture stays extensible (more crops / regions / features later), but v1 doesn't pre-build for the future.
 
 ### Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | Next.js 16 · React 19 · TypeScript · Tailwind CSS |
-| Backend | Dart (REST/JSON API) |
+| Frontend | Next.js 16 · React 19 · TypeScript (`strict`) · Tailwind CSS 4 |
+| Backend | Dart (REST/JSON — `GET /defaults` + scenario persistence only) |
 | Mocking | MSW (Mock Service Worker) |
 
 ### Getting Started
 
-**Frontend**
-
 ```bash
 cd frontend
 npm install
-npm run dev
-# Opens at http://localhost:3000
+npm run dev        # → http://localhost:3000
 ```
 
-> The frontend ships with MSW mock data so it runs standalone without the backend.
-
-**Backend**
-
-```bash
-dart run backend/backend.dart
-```
+> The frontend ships with MSW mock data, so it runs standalone without the backend.
 
 ### Project Structure
 
 ```
 smart-farm/
-├── frontend/          # Next.js app (TypeScript)
-│   ├── src/
-│   │   ├── app/       # Route pages (dashboard, farm, market)
-│   │   ├── components/  # UI components by domain
-│   │   ├── config/    # Crop & state configuration (data-driven)
-│   │   ├── lib/api/   # API client layer
-│   │   ├── lib/mocks/ # MSW handlers & seed data
-│   │   └── types/     # Shared TypeScript types
-│   └── ...
-├── backend/           # Dart backend
-├── tasks/             # API contracts & planning docs
-└── README.md
+├── frontend/             # Next.js app (TypeScript) — owns input → calc → output
+│   └── src/
+│       ├── app/          # Route pages
+│       ├── components/   # UI components by domain
+│       ├── config/       # Crop & cost-model configuration (data-driven)
+│       ├── lib/breakeven # Calc engine (pure TS — the authoritative implementation)
+│       ├── lib/api/      # API client layer
+│       ├── lib/mocks/    # MSW handlers & seed data
+│       └── types/        # Shared TypeScript types
+├── backend/              # Dart backend (defaults + scenario store)
+├── docs/v1-alignment.md  # v1 contract + calc conventions (source of truth)
+└── tasks/                # API contracts & planning docs
 ```
 
 ### Design Principles
 
-1. **Local cash price is king** — breakeven is always compared against the elevator price in your ZIP, not CME futures.
-2. **Basis matters** — we store `basis = cash − futures` as a time series. It's the difference between a profitable sale and a missed opportunity.
-3. **Low-friction cost entry** — pre-fill from last season, edit only what changed. Fewer fields = more farmers complete the form.
-4. **No scraping** — machinery reference prices come from user input + backend ranges. No legal/ToS risk from scraping auction sites.
+1. **Local cash price is king** — breakeven is always compared against the farmer's hand-entered local cash price, **never** a futures quote.
+2. **Low-friction cost entry is the moat** — pre-fill defaults, reuse last season, edit only what changed. Fewer fields = more farmers finish.
+3. **The calc engine lives in the frontend** — one implementation, instant recompute, no backend round-trip for the sensitivity grid.
+4. **Data-driven** — adding a crop, region, or cost item is a config change, not a code branch.
+5. **No scraping** — machinery is a `$/acre` cost the farmer types in (or a backend reference range), not an appraisal.
 
 ---
 
 ## 中文版
 
-### Smart Farm 是什么？
+### Smart Farm 是什么?
 
-Smart Farm 是一款面向美国中小型农场主的**盈亏规划与决策工具**，专注于玉米带的玉米和大豆种植。
+Smart Farm(v1)是一个面向美国玉米带玉米 / 大豆种植户的**单作物盈亏 / 保本计算器**。农户填几个数 —— 单产、本地能拿到的现金价、各项成本 —— 就立刻知道**作物得卖到多少钱才保本、现在是盈是亏**。
 
-它回答的核心问题只有一个：
+目标很直接:做一个**比农户现在用的笨重表格更好上手**的工具,同时把保本这笔账算对。
 
-**"现在该不该卖粮？这台农机值不值得买？"**
+### 怎么运作
 
-通过整合 CME 期货行情、本地粮库现金价以及你农场的真实成本结构，Smart Farm 为你计算出本地化的**真实保本价**，并与最近粮库当天的挂牌价直接比对。
+```
+农户录入  →  计算引擎(纯 TS 函数)  →  输出(损益 · 保本价 · 敏感性热力图)
+   ↑                                                ↓
+后端 GET /defaults(默认值)                    后端 存 / 读场景
+```
 
-### 我们解决的问题
+- **计算引擎是前端的活**(TypeScript,唯一真理源)。后端**不算 margin**,只下发默认值 + 存读场景。这样敏感性拖动条能实时重算,也避免 TS / Dart 两份公式飘掉。
+- **现金价是农户手填的。** v1 不接任何实时行情。
 
-大多数小型农场仍然用电子表格管理成本，打电话问粮库报价。要判断今天的现金价是否能覆盖你的每蒲式耳真实成本，需要同时考虑：
+### v1 做什么
 
-- 本地现金价（包含 basis，不只是 CME 期货报价）
-- 每英亩真实成本——种子、化肥、地租、农机、运营贷款
-- 你具体地块的历史单产（APH）
+| 方面 | v1 |
+|------|----|
+| 作物 | 玉米 · 大豆(预留一个 `other` 槽) |
+| 录入 | 单产(APH 或预期)、**手填现金价**、各项成本(带可改的地区默认值)、土地 / 农机各一个可填的 `$/acre` 数字 |
+| 输出 | 每英亩损益卡 · 保本价 / 保本单产 · 净 margin · 整场美元汇总 · **交互式价格 × 单产敏感性热力图** · 存 / 读场景 |
 
-Smart Farm 自动将这些数据串联，给出清晰的**卖出 / 持仓 / 观望**信号。
+### v1 明确不做
 
-### MVP 覆盖范围
+行情 / 期货 / basis、卖买信号、预警、决策驾驶舱、轮作建议、营销 log、保险、农机折旧引擎、PDF 报告。农机与土地是**成本变量(一个数字)**,不是估值模块 —— 绝不爬 TractorHouse / Sandhills。
 
-| 维度 | 范围 |
-|------|------|
-| 州 | 爱荷华（IA）· 伊利诺伊（IL）· 印第安纳（IN） |
-| 作物 | 玉米 · 大豆 |
-| 数据更新频率 | 现金价按天/小时更新 |
-| 期货数据源 | CME ZC（玉米）· ZS（大豆） |
-
-架构完全由数据驱动——新增州或作物只需修改配置，不需要改动核心代码。
-
-### 核心功能
-
-**市场数据层**
-- 按 ZIP 精确匹配的粮库本地现金价
-- CME 期货实时行情（ZC / ZS）
-- Basis（现金价 − 期货）按地区存储为时间序列
-
-**农场档案层**
-- 逐地块成本录入：种子、化肥、地租、农机、运营利息
-- 每块地的历史单产（APH）
-- 农机成本建模（每英亩影响 + 回本年限）
-
-**保本引擎**
-- 真实保本价 = 每英亩总成本 ÷ 单产
-- 始终与本地现金价比对，**不使用期货价**
-- 逐地块、逐作物的盈亏可视化
-
-**决策驾驶舱**
-- 带 basis 预警的卖出信号卡片
-- 轮作建议
-- 跨季对比
+架构保持可扩展(以后会加作物 / 地区 / 功能),但 v1 不提前为未来铺摊子。
 
 ### 技术栈
 
 | 层级 | 技术 |
 |------|------|
-| 前端 | Next.js 16 · React 19 · TypeScript · Tailwind CSS |
-| 后端 | Dart（REST/JSON API） |
-| 接口 Mock | MSW（Mock Service Worker） |
+| 前端 | Next.js 16 · React 19 · TypeScript(`strict`)· Tailwind CSS 4 |
+| 后端 | Dart(REST/JSON —— 仅 `GET /defaults` + 场景持久化) |
+| 接口 Mock | MSW(Mock Service Worker) |
 
 ### 快速开始
-
-**前端**
 
 ```bash
 cd frontend
 npm install
-npm run dev
-# 访问 http://localhost:3000
+npm run dev        # → http://localhost:3000
 ```
 
-> 前端内置 MSW mock 数据，无需后端即可独立运行。
-
-**后端**
-
-```bash
-dart run backend/backend.dart
-```
+> 前端内置 MSW mock 数据,无需后端即可独立运行。
 
 ### 项目结构
 
 ```
 smart-farm/
-├── frontend/          # Next.js 前端（TypeScript）
-│   ├── src/
-│   │   ├── app/       # 路由页面（仪表盘、农场档案、市场）
-│   │   ├── components/  # 按业务域划分的 UI 组件
-│   │   ├── config/    # 作物 & 州配置（数据驱动）
-│   │   ├── lib/api/   # API 客户端封装层
-│   │   ├── lib/mocks/ # MSW handlers & 种子数据
-│   │   └── types/     # 共享 TypeScript 类型定义
-│   └── ...
-├── backend/           # Dart 后端
-├── tasks/             # API 契约 & 规划文档
-└── README.md
+├── frontend/             # Next.js 前端 —— 拥有 录入 → 计算 → 输出 全链路
+│   └── src/
+│       ├── app/          # 路由页面
+│       ├── components/   # 按业务域划分的 UI 组件
+│       ├── config/       # 作物 & 成本模型配置(数据驱动)
+│       ├── lib/breakeven # 计算引擎(纯 TS —— 唯一权威实现)
+│       ├── lib/api/      # API 客户端封装层
+│       ├── lib/mocks/    # MSW handlers & 种子数据
+│       └── types/        # 共享 TypeScript 类型
+├── backend/              # Dart 后端(默认值 + 场景存储)
+├── docs/v1-alignment.md  # v1 契约 + 计算口径(真理源)
+└── tasks/                # API 契约 & 规划文档
 ```
 
 ### 设计原则
 
-1. **本地现金价才是基准** — 保本价永远与你所在 ZIP 的粮库挂牌价比对，不与 CME 期货比对。
-2. **Basis 是命门** — 我们将 `basis = 现金价 − 期货` 存为时间序列，它是决定卖出是否合算的关键变量。
-3. **低摩擦录入是护城河** — 预填上季数据，只改变化的字段，字段越少越好。
-4. **不爬取第三方数据** — 农机参考价由用户手动输入 + 后端给出区间，规避法律与反爬风险。
+1. **本地现金价才是基准** —— 保本价永远与农户手填的本地现金价比对,**绝不**用期货价。
+2. **低摩擦录入是护城河** —— 预填默认值、复用上季、只改变化的字段。字段越少,农户越愿意填完。
+3. **计算引擎在前端** —— 一份实现、实时重算,敏感性网格不走后端往返。
+4. **数据驱动** —— 加作物 / 地区 / 成本项是改配置,不是写分支。
+5. **不爬取数据** —— 农机是农户手填的 `$/acre` 成本(或后端参考区间),不做估值。
 
 ---
 
