@@ -18,6 +18,20 @@
 
 ## 已完成
 
+### [2026-06-13] 实现 v1 Dart 后端 defaults + scenarios
+
+**目标**：实现 v1 后端服务：只提供 `GET /defaults` 与 Scenario CRUD，支持 `soybean` 兼容输入但以 `soybeans` 为 canonical，绝不实现后端保本/盈亏计算。
+
+**计划**：
+- [x] 创建 Dart HTTP server skeleton（CORS、JSON、错误响应、路由）
+- [x] 创建默认预算数据文件，使用 canonical `soybeans`
+- [x] 实现场景文件存储与 CRUD
+- [x] 对 crop 输入做 `soybean` → `soybeans` 兼容归一化
+- [x] 在 `tasks/frontRequest.md` 记录前端应迁移回 `soybeans`
+- [x] 运行 Dart 格式化与手动 HTTP 验证
+
+**审查**：已实现 backend-only v1 Dart 服务：`GET /defaults`、`GET/POST/PUT/DELETE /scenarios`、CORS、JSON 错误响应、文件持久化。`soybean` 仅作为临时输入兼容别名，保存与返回均归一为 canonical `soybeans`。未实现任何 breakeven / margin / sensitivity / market / basis / signal 后端计算端点。验证：`dart format backend`、`dart analyze backend` 通过；本地 8081 手动验证 defaults、scenario create/list/get/update/delete 均通过，验证数据已删除，`backend/data/scenarios.json` 保持空数组。
+
 ### [2026-06-13] 删除旧模型(market / dashboard),只留 v1 核心
 
 **目标**：用户确认 `docs/v1-alignment.md` 已在 docs 目录(用户亲自写,§6 契约 + §7 计算签名)。删掉所有旧模型功能代码,只保留核心(农场录入 → 保本输出)。breakeven 数据流暂不动(later)。
@@ -60,6 +74,19 @@
 3. **未改前端 breakeven 数据流**:`lib/api/breakeven.ts` + `mocks/handlers.ts` 仍走 `POST /api/breakeven/calculate`(后端算账模型)。v1 应让 `/breakeven` 页直接调本地引擎(`lib/breakeven/`),不走后端往返。属运行时行为改动 → 需单独立项重构(建议下一步)。
 4. **未重命名** `lib/breakeven/preview.ts` 及其 `…Preview` 导出(跨组件引用,纯重构,可选)。
 5. **未碰任何 backend / Dart 代码**(角色边界)。
+
+---
+
+### [2026-06-10] 建立前端请求交接文件
+
+**目标**：创建 `tasks/frontRequest.md`，用于后端负责人向前端开发者集中交接前端修改请求。
+
+**计划**：
+- [x] 创建前端请求文件
+- [x] 写入请求模板与当前状态
+- [x] 完成后移动到已完成并补审查
+
+**审查**：已新增 `tasks/frontRequest.md`，包含 Active Requests、Request Template、Completed Requests 三段。后续如后端需要前端配合，将只在该文件记录请求，不直接修改前端实现。
 
 ---
 

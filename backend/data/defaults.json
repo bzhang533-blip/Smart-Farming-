@@ -1,0 +1,76 @@
+{
+  "year": 2026,
+  "region": "midwest",
+  "interestRatePct": 8.0,
+  "crops": {
+    "corn": {
+      "directCosts": [
+        { "key": "chemicals_herbicide", "label": "Chemicals (Herbicide)", "value": 55, "source": "default" },
+        { "key": "fungicide_insecticide", "label": "Fungicide/Insecticide", "value": 0, "source": "default" },
+        { "key": "crop_insurance", "label": "Crop Insurance", "value": 22, "source": "default" },
+        { "key": "custom_hire", "label": "Custom Hire", "value": 15, "source": "default" },
+        { "key": "labor_hired", "label": "Labor Hired & Employee Benefits", "value": 21, "source": "default" },
+        { "key": "fertilizer_lime", "label": "Fertilizer and Lime", "value": 200, "source": "default" },
+        { "key": "fuel_oil", "label": "Gas/Fuel/Oil", "value": 30, "source": "default" },
+        { "key": "insurance", "label": "Insurance", "value": 20, "source": "default" },
+        { "key": "operating_interest", "label": "Operating Interest", "value": 20, "source": "default" },
+        { "key": "repairs_maintenance", "label": "Repairs/Maintenance", "value": 46, "source": "default" },
+        { "key": "seed", "label": "Seed/Plants (Treated)", "value": 135, "source": "default" },
+        { "key": "storage_drying", "label": "Storage/Drying/Warehouse", "value": 30, "source": "default" },
+        { "key": "supplies", "label": "Supplies", "value": 0, "source": "default" },
+        { "key": "trucking_freight", "label": "Trucking/Freight", "value": 4, "source": "default" },
+        { "key": "utilities", "label": "Utilities", "value": 10, "source": "default" },
+        { "key": "other_1", "label": "Other Expense", "value": 14, "source": "default" },
+        { "key": "other_2", "label": "Other Expense", "value": 0, "source": "default" }
+      ],
+      "landCostPerAcre": 265,
+      "machineryCostPerAcre": 65
+    },
+    "soybeans": {
+      "directCosts": [
+        { "key": "chemicals_herbicide", "label": "Chemicals (Herbicide)", "value": 66, "source": "default" },
+        { "key": "fungicide_insecticide", "label": "Fungicide/Insecticide", "value": 0, "source": "default" },
+        { "key": "crop_insurance", "label": "Crop Insurance", "value": 19, "source": "default" },
+        { "key": "custom_hire", "label": "Custom Hire", "value": 10, "source": "default" },
+        { "key": "labor_hired", "label": "Labor Hired & Employee Benefits", "value": 15, "source": "default" },
+        { "key": "fertilizer_lime", "label": "Fertilizer and Lime", "value": 72, "source": "default" },
+        { "key": "fuel_oil", "label": "Gas/Fuel/Oil", "value": 20, "source": "default" },
+        { "key": "insurance", "label": "Insurance", "value": 16, "source": "default" },
+        { "key": "operating_interest", "label": "Operating Interest", "value": 15, "source": "default" },
+        { "key": "repairs_maintenance", "label": "Repairs/Maintenance", "value": 33, "source": "default" },
+        { "key": "seed", "label": "Seed/Plants (Treated)", "value": 65, "source": "default" },
+        { "key": "storage_drying", "label": "Storage/Drying/Warehouse", "value": 2, "source": "default" },
+        { "key": "supplies", "label": "Supplies", "value": 0, "source": "default" },
+        { "key": "trucking_freight", "label": "Trucking/Freight", "value": 3, "source": "default" },
+        { "key": "utilities", "label": "Utilities", "value": 8, "source": "default" },
+        { "key": "other_1", "label": "Other Expense", "value": 10, "source": "default" },
+        { "key": "other_2", "label": "Other Expense", "value": 0, "source": "default" }
+      ],
+      "landCostPerAcre": 265,
+      "machineryCostPerAcre": 65
+    },
+    "other": {
+      "directCosts": [],
+      "landCostPerAcre": 0,
+      "machineryCostPerAcre": 0
+    }
+  },
+  "sources": [
+    {
+      "label": "Compeer Grain Margin Manager reference spreadsheet",
+      "url": "docs/reference/grain-margin-manager-2026-1.xlsx"
+    },
+    {
+      "label": "Iowa State University crop budgets",
+      "url": "https://www.extension.iastate.edu/agdm/crops/html/a1-20.html"
+    },
+    {
+      "label": "Illinois FarmDoc crop budgets",
+      "url": "https://farmdoc.illinois.edu/"
+    },
+    {
+      "label": "FINBIN farm financial database",
+      "url": "https://finbin.umn.edu/"
+    }
+  ]
+}
