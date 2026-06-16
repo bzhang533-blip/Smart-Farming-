@@ -184,6 +184,27 @@
 
 ---
 
+### [2026-06-16] v1 计算引擎(scenario.ts + calc.ts + tests)
+
+**目标**:在 `frontend/src/lib/calc/` 实现 v1 唯一一份财务计算引擎(类型 + 纯函数 + 单测),全绿即完成。依据 `docs/build-calc-engine.md`、`docs/v1-alignment.md` §6/§7。
+
+**计划**:
+- [x] 引入 vitest(devDep + `test` 脚本 + `vitest.config.ts`),CLAUDE.md §7 之前空缺
+- [x] `scenario.ts`:照 alignment §6 的类型(CropKey、CostSource、CostLine、CropEntry、FamilyLiving、Scenario)
+- [x] `calc.test.ts`(TDD 先行):用 build-calc-engine.md 的 fixture 与断言数字
+- [x] 验证 RED:测试先失败(calc.ts 未实现)
+- [x] `calc.ts`:照 alignment §7 的纯函数签名,最小实现使测试转绿
+- [x] 验证 GREEN:typecheck + lint + test 全绿,贴输出
+- [x] 自检:无 `next/*`/React 导入;未碰后端/Dart
+
+**审查**:
+- 交付 `frontend/src/lib/calc/{scenario.ts, calc.ts, calc.test.ts}` + `vitest.config.ts`,`package.json` 加 `test` 脚本。
+- TDD:先写测试看其失败(模块缺失),再最小实现转绿。**19 个测试全过**;`npx tsc --noEmit` 与 `npm run lint` 均 0 退出。
+- sanity 数字全部命中:corn margin −70 / breakeven 4.533,soybean margin −72 / breakeven 11.40,whole-farm net −14200,敏感性 (4.20,210)=−70 / (4.70,210)=+35,yield=0 → NaN。
+- **偏差留意**:引擎用 alignment §6 的 `Scenario`/`CropEntry`/`CostLine` 类型,与已存在的 `types/farm.ts`(Compeer `CostItem` 含 category)是两套模型。本任务按 build-calc-engine.md 指定的 §6 schema 实现(单一权威计算)。**后续跟进**:接 UI 时需决定两套类型如何收敛(让 UI 的 `CostItem` 适配引擎的 `CostLine`,或反之),避免再次出现两份模型漂移。
+
+---
+
 ## 模板
 
 ```markdown
