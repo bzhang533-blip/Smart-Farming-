@@ -85,6 +85,13 @@ const SOYBEAN: CropEntry = {
   }),
 };
 
+function makeScenario(
+  crops: CropEntry[],
+  familyLiving?: Scenario["familyLiving"],
+): Scenario {
+  return { year: 2026, region: "midwest", farm: {}, crops, familyLiving };
+}
+
 describe("corn per-acre", () => {
   it("direct expense = 622", () => {
     expect(totalDirectExpense(CORN)).toBe(622);
@@ -131,14 +138,8 @@ describe("soybean per-acre", () => {
 });
 
 describe("whole-farm (corn + soybean, 100 ac each)", () => {
-  const scenario: Scenario = {
-    year: 2026,
-    region: "midwest",
-    farm: {},
-    crops: [CORN, SOYBEAN],
-  };
-
   it("rolls up revenue / expense / net", () => {
+    const scenario = makeScenario([CORN, SOYBEAN]);
     const wf = wholeFarm(scenario);
     expect(wf.revenue).toBeCloseTo(149400, 6);
     expect(wf.expense).toBeCloseTo(163600, 6);
@@ -156,24 +157,18 @@ describe("sensitivity grid (corn)", () => {
 
 describe("family living", () => {
   it("max(0, living − nonFarm) / total acres", () => {
-    const scenario: Scenario = {
-      year: 2026,
-      region: "midwest",
-      farm: {},
-      crops: [CORN, SOYBEAN], // 200 total acres
-      familyLiving: { annualLivingExpense: 50000, annualNonFarmIncome: 10000 },
-    };
-    expect(familyLivingPerAcre(scenario)).toBeCloseTo(200, 6); // 40000 / 200
+    const s = makeScenario(
+      [CORN, SOYBEAN], // 200 total acres
+      { annualLivingExpense: 50000, annualNonFarmIncome: 10000 },
+    );
+    expect(familyLivingPerAcre(s)).toBe(200); // 40000 / 200 = exactly representable
   });
   it("clamps negatives to 0", () => {
-    const scenario: Scenario = {
-      year: 2026,
-      region: "midwest",
-      farm: {},
-      crops: [CORN],
-      familyLiving: { annualLivingExpense: 10000, annualNonFarmIncome: 50000 },
-    };
-    expect(familyLivingPerAcre(scenario)).toBe(0);
+    const s = makeScenario(
+      [CORN],
+      { annualLivingExpense: 10000, annualNonFarmIncome: 50000 },
+    );
+    expect(familyLivingPerAcre(s)).toBe(0);
   });
 });
 
