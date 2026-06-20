@@ -19,8 +19,7 @@ String? validateScenarioPayload(Object? body, {bool partial = false}) {
     for (final cropEntry in crops) {
       if (cropEntry is! Map) return 'Each crop entry must be an object.';
       final crop = normalizeCrop(cropEntry['crop']);
-      if (crop == null)
-        return 'Crop must be one of corn, soybeans, soybean, or other.';
+      if (crop == null) return 'Crop must be one of corn, soybeans, or other.';
       final numericError = _validateNumericFields(cropEntry, [
         'acres',
         'yieldBuPerAcre',

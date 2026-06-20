@@ -18,6 +18,18 @@
 
 ## 已完成
 
+### [2026-06-18] 后端只接受 canonical `soybeans`
+
+**目标**：移除后端 `soybean` 兼容别名，只接受 v1 alignment canonical crop key：`soybeans`。
+
+**计划**：
+- [x] 移除 backend crop normalization 中的 `soybean` → `soybeans` alias
+- [x] 更新 backend validation/error 文案
+- [x] 更新 `tasks/frontRequest.md`，说明 alias 已移除
+- [x] 运行 Dart format/analyze 并手动验证 `soybeans` 通过、`soybean` 拒绝
+
+**审查**：已移除后端 `soybean` 兼容路径，`normalizeCrop` 现在只接受 `corn` / `soybeans` / `other`。`GET /defaults?crop=soybeans` 返回 200，`GET /defaults?crop=soybean` 返回 400，`POST /scenarios` 使用 `crop:"soybean"` 返回 400。`dart format backend` 与 `dart analyze backend` 均通过。未修改任何 `frontend/` 文件。
+
 ### [2026-06-13] 实现 v1 Dart 后端 defaults + scenarios
 
 **目标**：实现 v1 后端服务：只提供 `GET /defaults` 与 Scenario CRUD，支持 `soybean` 兼容输入但以 `soybeans` 为 canonical，绝不实现后端保本/盈亏计算。
