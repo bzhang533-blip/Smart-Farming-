@@ -1,28 +1,29 @@
-import type { SensitivityMatrix } from "@/types";
-
 interface Props {
-  matrix: SensitivityMatrix;
-  /** 当前情形的现金价与单产，用于高亮中心格。 */
+  cells: number[][];
+  priceAxis: number[];
+  yieldAxis: number[];
   centerPrice: number;
   centerYield: number;
 }
 
-/** 把净利润映射成背景色：盈利→绿,亏损→红,强度随金额。 */
 function cellStyle(value: number, maxAbs: number): React.CSSProperties {
   if (maxAbs === 0) return {};
   const intensity = Math.min(Math.abs(value) / maxAbs, 1);
   const alpha = 0.08 + intensity * 0.5;
-  const rgb = value >= 0 ? "16, 122, 87" : "200, 50, 50"; // green / red
+  const rgb = value >= 0 ? "16, 122, 87" : "200, 50, 50";
   return { backgroundColor: `rgba(${rgb}, ${alpha.toFixed(3)})` };
 }
 
 const near = (a: number, b: number) => Math.abs(a - b) < 1e-6;
 
-export default function SensitivityGrid({ matrix, centerPrice, centerYield }: Props) {
-  const { yieldAxis, priceAxis, cells } = matrix;
+export default function SensitivityGrid({
+  cells,
+  priceAxis,
+  yieldAxis,
+  centerPrice,
+  centerYield,
+}: Props) {
   const maxAbs = Math.max(1, ...cells.flat().map((v) => Math.abs(v)));
-
-  // 价格轴从高到低显示（上=价格高=更有利）。
   const rowOrder = priceAxis.map((_, i) => i).reverse();
 
   return (

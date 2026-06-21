@@ -321,7 +321,9 @@ export default function BreakevenClient({ farmId }: Props) {
               <span className="text-xs text-gray-400">Net margin / acre</span>
             </div>
             <SensitivityGrid
-              matrix={result.sensitivityMatrix}
+              cells={result.sensitivityMatrix.cells}
+              priceAxis={result.sensitivityMatrix.priceAxis}
+              yieldAxis={result.sensitivityMatrix.yieldAxis}
               centerPrice={result.currentCashPrice}
               centerYield={result.aph}
             />
