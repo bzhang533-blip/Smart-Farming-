@@ -12,7 +12,6 @@ import {
   mergeCostItems,
   costItemSign,
 } from "@/config/costModel";
-import { costSubtotals, totalCostPerAcre } from "@/lib/breakeven/preview";
 import { updateFarmProfile } from "@/lib/api/farm";
 
 interface Props {
@@ -23,6 +22,30 @@ interface Props {
 }
 
 const fmt = (n: number) => `$${n.toFixed(0)}`;
+
+/** Cost subtotals helper: direct / capital totals */
+function getCostSubtotals(items: CostItem[]) {
+  let directTotal = 0;
+  let capitalTotal = 0;
+  let familyRaw = 0;
+  for (const it of items) {
+    if (it.category === "direct") directTotal += it.valuePerAcre;
+    else if (it.category === "capital") capitalTotal += it.valuePerAcre;
+    else if (it.category === "netFamilyLiving") {
+      familyRaw += costItemSign(it.key) * it.valuePerAcre;
+    }
+  }
+  return {
+    directTotal: Math.round(directTotal * 100) / 100,
+    capitalTotal: Math.round(capitalTotal * 100) / 100,
+    netFamilyLiving: Math.round(Math.max(0, familyRaw) * 100) / 100,
+  };
+}
+
+/** Total cost per acre */
+function getTotalCostPerAcre(subtotals: ReturnType<typeof getCostSubtotals>): number {
+  return Math.round((subtotals.directTotal + subtotals.capitalTotal + subtotals.netFamilyLiving) * 100) / 100;
+}
 
 export default function CostStructureSection({ farmId, costStructure, fields, onSave }: Props) {
   // 农场级成本以首块地的作物为兜底基准（缺项填默认值）。
@@ -36,8 +59,8 @@ export default function CostStructureSection({ farmId, costStructure, fields, on
   const displayed = editing ? draft : mergeCostItems(costStructure, primaryCrop);
   const valueByKey = new Map(displayed.map((i) => [i.key, i.valuePerAcre]));
 
-  const subtotals = costSubtotals(displayed);
-  const total = totalCostPerAcre(subtotals);
+  const subtotals = getCostSubtotals(displayed);
+  const total = getTotalCostPerAcre(subtotals);
 
   function startEdit() {
     setDraft(mergeCostItems(costStructure, primaryCrop));

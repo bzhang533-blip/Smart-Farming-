@@ -1,9 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { BreakevenResult, DefaultsResponse, FarmProfile } from "@/types";
-import { getFarmProfile } from "@/lib/api/farm";
-import { calculateBreakeven } from "@/lib/api/breakeven";
 import { getDefaults } from "@/lib/api/defaults";
 import {
   createScenario,
@@ -12,83 +9,117 @@ import {
   listScenarios,
   type ScenarioSummary,
 } from "@/lib/api/scenarios";
+import { getFarmProfile } from "@/lib/api/farm";
+import {
+  breakevenPrice,
+  breakevenYield,
+  netMarginPerAcre,
+  revenuePerAcre,
+  sensitivityGrid,
+  totalCapitalExpense,
+  totalDirectExpense,
+  wholeFarm,
+} from "@/lib/calc/calc";
+import type { CropEntry, CropKey, Scenario } from "@/lib/calc/scenario";
 import { CROP_CONFIG } from "@/config/crops";
-import { mergeCostItems } from "@/config/costModel";
-import { wholeFarm } from "@/lib/calc/calc";
-import type { CostLine, CropKey, Scenario } from "@/lib/calc/scenario";
+import type { DefaultsResponse, FarmProfile, Field } from "@/types";
+import FieldInputPanel, { type FieldInputs } from "./FieldInputPanel";
 import SensitivityGrid from "./SensitivityGrid";
 
 interface Props {
   farmId: string;
 }
 
-/**
- * Assembles a Scenario from current farm data + per-field breakeven results.
- * Uses backend defaults (per-crop CostLine[]) when available, so corn and
- * soybeans get their own correct cost lines rather than a shared farm-level guess.
- */
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+function initFieldInputs(
+  farm: FarmProfile,
+  defaults: DefaultsResponse,
+): Map<string, FieldInputs> {
+  const map = new Map<string, FieldInputs>();
+  for (const field of farm.fields) {
+    const cropKey = field.crop as CropKey;
+    const cropDefs = defaults.crops[cropKey];
+    map.set(field.fieldId, {
+      cashPricePerBu: 0,
+      yieldBuPerAcre: field.aph,
+      landCostPerAcre: cropDefs?.landCostPerAcre ?? 0,
+      machineryCostPerAcre: cropDefs?.machineryCostPerAcre ?? 0,
+      directCosts: cropDefs?.directCosts ?? [],
+    });
+  }
+  return map;
+}
+
+function toCropEntry(field: Field, inputs: FieldInputs): CropEntry {
+  return {
+    crop: field.crop as CropKey,
+    acres: field.acres,
+    yieldBasis: "aph",
+    yieldBuPerAcre: inputs.yieldBuPerAcre,
+    cashPricePerBu: inputs.cashPricePerBu,
+    govtPaymentPerAcre:
+      CROP_CONFIG[field.crop].revenueDefaults.govtPaymentPerAcre,
+    directCosts: inputs.directCosts,
+    landCostPerAcre: inputs.landCostPerAcre,
+    machineryCostPerAcre: inputs.machineryCostPerAcre,
+  };
+}
+
 function buildScenario(
   farm: FarmProfile,
-  results: Map<string, BreakevenResult>,
-  defaults: DefaultsResponse | null,
+  inputs: Map<string, FieldInputs>,
 ): Scenario {
   return {
     year: 2026,
     region: "midwest",
     farm: { name: farm.name },
     crops: farm.fields
-      .filter((f) => results.has(f.fieldId))
       .map((f) => {
-        const res = results.get(f.fieldId)!;
-        const cropKey = f.crop as CropKey; // safe: Crop ⊆ CropKey after "soybeans" migration
-        const cropDefs = defaults?.crops[cropKey];
-
-        const directCosts: CostLine[] = cropDefs?.directCosts ??
-          farm.costStructure
-            .filter((c) => c.category === "direct")
-            .map((c) => ({ key: c.key, label: c.key, value: c.valuePerAcre, source: "user" as const }));
-
-        const landCostPerAcre = cropDefs?.landCostPerAcre ??
-          (farm.costStructure.find((c) => c.key === "land-cost")?.valuePerAcre ?? 0);
-        const machineryCostPerAcre = cropDefs?.machineryCostPerAcre ??
-          (farm.costStructure.find((c) => c.key === "machinery-cost")?.valuePerAcre ?? 0);
-
-        return {
-          crop: cropKey,
-          acres: f.acres,
-          yieldBasis: "aph" as const,
-          yieldBuPerAcre: f.aph,
-          cashPricePerBu: res.currentCashPrice,
-          govtPaymentPerAcre: CROP_CONFIG[f.crop].revenueDefaults.govtPaymentPerAcre,
-          directCosts,
-          landCostPerAcre,
-          machineryCostPerAcre,
-        };
-      }),
+        const fi = inputs.get(f.fieldId);
+        return fi ? toCropEntry(f, fi) : null;
+      })
+      .filter((c): c is CropEntry => c !== null),
   };
 }
 
 export default function BreakevenClient({ farmId }: Props) {
   const [farm, setFarm] = useState<FarmProfile | null>(null);
-  const [fieldId, setFieldId] = useState<string | null>(null);
-  const [allResults, setAllResults] = useState<Map<string, BreakevenResult>>(new Map());
   const [defaults, setDefaults] = useState<DefaultsResponse | null>(null);
+  const [fieldId, setFieldId] = useState<string | null>(null);
+  const [fieldInputs, setFieldInputs] = useState<Map<string, FieldInputs>>(
+    new Map(),
+  );
+  const [defaultFieldInputs, setDefaultFieldInputs] = useState<Map<string, FieldInputs>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Scenario state
+  const [priceExtent, setPriceExtent] = useState(4);
+  const [yieldExtent, setYieldExtent] = useState(4);
+
   const [scenarioList, setScenarioList] = useState<ScenarioSummary[]>([]);
-  const [loadedScenario, setLoadedScenario] = useState<(Scenario & { id: string }) | null>(null);
+  const [loadedScenario, setLoadedScenario] = useState<
+    (Scenario & { id: string }) | null
+  >(null);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
-  // 1) Load farm profile + defaults in parallel
   useEffect(() => {
     Promise.all([getFarmProfile(farmId), getDefaults()])
       .then(([f, defs]) => {
         setFarm(f);
-        setFieldId(f.fields[0]?.fieldId ?? null);
         setDefaults(defs);
+        setFieldId(f.fields[0]?.fieldId ?? null);
+        const seeded = initFieldInputs(f, defs);
+        setFieldInputs(seeded);
+        setDefaultFieldInputs(
+          new Map(
+            [...seeded.entries()].map(([k, v]) => [
+              k,
+              { ...v, directCosts: v.directCosts.map((c) => ({ ...c })) },
+            ]),
+          ),
+        );
         setLoading(false);
       })
       .catch((err: unknown) => {
@@ -97,55 +128,83 @@ export default function BreakevenClient({ farmId }: Props) {
       });
   }, [farmId]);
 
-  // 2) When farm loads, compute breakeven for ALL fields in parallel
-  useEffect(() => {
-    if (!farm) return;
-    Promise.all(
-      farm.fields.map((f) =>
-        calculateBreakeven({
-          farmId,
-          fieldId: f.fieldId,
-          crop: f.crop,
-          season: "2026",
-          costItems: mergeCostItems(farm.costStructure, f.crop),
-          aph: f.aph,
-          zip: f.zip,
-          govtPaymentPerAcre: CROP_CONFIG[f.crop].revenueDefaults.govtPaymentPerAcre,
-        }),
-      ),
-    )
-      .then((results) => {
-        setAllResults(new Map(results.map((r, i) => [farm.fields[i].fieldId, r])));
-        setError(null);
-      })
-      .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : "Breakeven calculation failed"),
-      );
-  }, [farm, farmId]);
-
-  // 3) Load scenario list
   useEffect(() => {
     listScenarios()
       .then((res) => setScenarioList(res.scenarios))
-      .catch(() => { /* non-fatal */ });
+      .catch(() => {
+        /* non-fatal */
+      });
   }, []);
 
-  const result = allResults.get(fieldId ?? "");
-  const resultsReady = !!farm && farm.fields.every((f) => allResults.has(f.fieldId));
+  const field = farm?.fields.find((f) => f.fieldId === fieldId) ?? null;
+  const inputs = fieldId ? (fieldInputs.get(fieldId) ?? null) : null;
+  const defaultInputs = fieldId
+    ? (defaultFieldInputs.get(fieldId) ?? null)
+    : null;
+
+  const entry = useMemo(
+    () => (field && inputs ? toCropEntry(field, inputs) : null),
+    [field, inputs],
+  );
+
+  const derived = useMemo(() => {
+    if (!entry) return null;
+    return {
+      be: breakevenPrice(entry),
+      beYield: breakevenYield(entry),
+      margin: netMarginPerAcre(entry),
+      revenue: revenuePerAcre(entry),
+      direct: totalDirectExpense(entry),
+      capital: totalCapitalExpense(entry),
+    };
+  }, [entry]);
+
+  const crop = field?.crop ?? "corn";
+  const sensitivityCfg = CROP_CONFIG[crop].sensitivity;
+  const priceStep = sensitivityCfg.priceStep;
+  const yieldStep = sensitivityCfg.yieldStep;
+  const cashPrice = inputs?.cashPricePerBu ?? 0;
+  const yieldBu = inputs?.yieldBuPerAcre ?? 0;
+
+  const priceAxis = useMemo(
+    () =>
+      Array.from({ length: priceExtent * 2 + 1 }, (_, i) =>
+        round2(cashPrice + (i - priceExtent) * priceStep),
+      ).filter((p) => p > 0),
+    [cashPrice, priceExtent, priceStep],
+  );
+
+  const yieldAxis = useMemo(
+    () =>
+      Array.from({ length: yieldExtent * 2 + 1 }, (_, i) =>
+        Math.max(0, Math.round(yieldBu + (i - yieldExtent) * yieldStep)),
+      ),
+    [yieldBu, yieldExtent, yieldStep],
+  );
+
+  const gridCells = useMemo(
+    () => (entry && cashPrice > 0 ? sensitivityGrid(entry, priceAxis, yieldAxis) : []),
+    [entry, cashPrice, priceAxis, yieldAxis],
+  );
 
   const wholeFarmTotals = useMemo(() => {
     if (loadedScenario) return wholeFarm(loadedScenario);
-    if (!farm || !resultsReady) return null;
-    return wholeFarm(buildScenario(farm, allResults, defaults));
-  }, [farm, allResults, resultsReady, defaults, loadedScenario]);
+    if (!farm || fieldInputs.size === 0) return null;
+    const scenario = buildScenario(farm, fieldInputs);
+    return scenario.crops.length > 0 ? wholeFarm(scenario) : null;
+  }, [farm, fieldInputs, loadedScenario]);
 
-  // ── Save current scenario ────────────────────────────────────────────────
+  function updateFieldInputs(fid: string, updated: FieldInputs) {
+    setFieldInputs((prev) => new Map(prev).set(fid, updated));
+    setLoadedScenario(null);
+  }
+
   async function handleSave() {
-    if (!farm || !resultsReady) return;
+    if (!farm) return;
     setSaving(true);
     setSaveMsg(null);
     try {
-      const scenario = buildScenario(farm, allResults, defaults);
+      const scenario = buildScenario(farm, fieldInputs);
       const { id } = await createScenario(scenario);
       const refreshed = await listScenarios();
       setScenarioList(refreshed.scenarios);
@@ -158,7 +217,6 @@ export default function BreakevenClient({ farmId }: Props) {
     }
   }
 
-  // ── Load a saved scenario ────────────────────────────────────────────────
   async function handleLoad(id: string) {
     try {
       const scenario = await getScenario(id);
@@ -173,10 +231,11 @@ export default function BreakevenClient({ farmId }: Props) {
       await deleteScenario(id);
       setScenarioList((l) => l.filter((s) => s.id !== id));
       if (loadedScenario?.id === id) setLoadedScenario(null);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
-  // ── Render guards ─────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
@@ -186,7 +245,7 @@ export default function BreakevenClient({ farmId }: Props) {
     );
   }
 
-  if (error && !result) {
+  if (error && !farm) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
         <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
@@ -197,38 +256,43 @@ export default function BreakevenClient({ farmId }: Props) {
   }
 
   if (!farm) return null;
-  const field = farm.fields.find((f) => f.fieldId === fieldId);
 
   return (
     <div className="p-6 max-w-4xl mx-auto flex flex-col gap-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-0.5">
-          <h1 className="text-xl font-semibold text-gray-900">Breakeven &amp; Sensitivity</h1>
+          <h1 className="text-xl font-semibold text-gray-900">
+            Breakeven &amp; Sensitivity
+          </h1>
           <p className="text-sm text-gray-500">
             {farm.name} · Local cash price vs. true breakeven — never futures.
           </p>
         </div>
         <button
           onClick={handleSave}
-          disabled={saving || !resultsReady}
+          disabled={saving}
           className="shrink-0 rounded-lg border border-blue-600 bg-white px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-40 transition-colors"
         >
-          {saving ? "Saving…" : saveMsg ?? "Save Scenario"}
+          {saving ? "Saving…" : (saveMsg ?? "Save Scenario")}
         </button>
       </div>
 
       {/* Saved scenarios picker */}
       {scenarioList.length > 0 && (
         <div className="flex flex-col gap-2">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Saved Scenarios</p>
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+            Saved Scenarios
+          </p>
           <div className="flex flex-wrap gap-2">
             {scenarioList.map((s) => {
               const active = loadedScenario?.id === s.id;
               return (
                 <div key={s.id} className="flex items-center gap-1">
                   <button
-                    onClick={() => (active ? setLoadedScenario(null) : handleLoad(s.id))}
+                    onClick={() =>
+                      active ? setLoadedScenario(null) : handleLoad(s.id)
+                    }
                     className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
                       active
                         ? "border-indigo-600 bg-indigo-50 text-indigo-700"
@@ -253,7 +317,7 @@ export default function BreakevenClient({ farmId }: Props) {
           </div>
           {loadedScenario && (
             <p className="text-xs text-indigo-600">
-              Viewing saved scenario — click again to return to current farm data.
+              Viewing saved scenario — click again to return to live data.
             </p>
           )}
         </div>
@@ -282,7 +346,7 @@ export default function BreakevenClient({ farmId }: Props) {
         })}
       </div>
 
-      {/* Whole-farm dollar totals */}
+      {/* Whole-farm rollup */}
       {wholeFarmTotals && (
         <WholeFarmCard
           totals={wholeFarmTotals}
@@ -300,40 +364,110 @@ export default function BreakevenClient({ farmId }: Props) {
         />
       )}
 
-      {result && field && (
-        <>
-          <DecisionPanel result={result} />
+      {/* Per-field inputs */}
+      {field && inputs && defaultInputs && (
+        <FieldInputPanel
+          inputs={inputs}
+          defaultInputs={defaultInputs}
+          cropLabel={CROP_CONFIG[field.crop].label}
+          onChange={(updated) => updateFieldInputs(field.fieldId, updated)}
+        />
+      )}
 
-          {/* Cost subtotals */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Stat label="Direct" value={`$${result.subtotals.directTotal.toFixed(0)}`} hint="/acre" />
-            <Stat label="Capital" value={`$${result.subtotals.capitalTotal.toFixed(0)}`} hint="/acre" />
-            <Stat label="Net Family Living" value={`$${result.subtotals.netFamilyLiving.toFixed(0)}`} hint="/acre" />
-            <Stat label="Total Expense" value={`$${result.totalCostPerAcre.toFixed(0)}`} hint="/acre" strong />
+      {/* Per-field results */}
+      {derived && entry && entry.yieldBuPerAcre > 0 ? (
+        <>
+          <DecisionPanel
+            cashPrice={cashPrice}
+            be={derived.be}
+            margin={derived.margin}
+            revenue={derived.revenue}
+          />
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <Stat
+              label="Direct Expense"
+              value={`$${derived.direct.toFixed(0)}`}
+              hint="/acre"
+            />
+            <Stat
+              label="Capital Expense"
+              value={`$${derived.capital.toFixed(0)}`}
+              hint="/acre"
+            />
+            <Stat
+              label="Total Expense"
+              value={`$${(derived.direct + derived.capital).toFixed(0)}`}
+              hint="/acre"
+              strong
+            />
           </div>
 
-          {/* Sensitivity matrix */}
-          <section className="flex flex-col gap-2">
+          <section className="flex flex-col gap-3">
             <div className="flex items-baseline justify-between">
               <h2 className="text-base font-semibold text-gray-900">
                 Price × Yield sensitivity
               </h2>
               <span className="text-xs text-gray-400">Net margin / acre</span>
             </div>
-            <SensitivityGrid
-              matrix={result.sensitivityMatrix}
-              centerPrice={result.currentCashPrice}
-              centerYield={result.aph}
-            />
+
+            <div className="flex flex-wrap gap-6 text-xs text-gray-500">
+              <label className="flex items-center gap-2">
+                Price range
+                <input
+                  type="range"
+                  min={1}
+                  max={8}
+                  value={priceExtent}
+                  onChange={(e) => setPriceExtent(Number(e.target.value))}
+                  className="w-24 accent-blue-600"
+                />
+                <span className="tabular-nums text-gray-400">
+                  ±{priceExtent} (${(priceExtent * priceStep).toFixed(2)})
+                </span>
+              </label>
+              <label className="flex items-center gap-2">
+                Yield range
+                <input
+                  type="range"
+                  min={1}
+                  max={8}
+                  value={yieldExtent}
+                  onChange={(e) => setYieldExtent(Number(e.target.value))}
+                  className="w-24 accent-blue-600"
+                />
+                <span className="tabular-nums text-gray-400">
+                  ±{yieldExtent} ({yieldExtent * yieldStep} bu)
+                </span>
+              </label>
+            </div>
+
+            {cashPrice > 0 ? (
+              <SensitivityGrid
+                cells={gridCells}
+                priceAxis={priceAxis}
+                yieldAxis={yieldAxis}
+                centerPrice={cashPrice}
+                centerYield={yieldBu}
+              />
+            ) : (
+              <div className="rounded-xl border border-gray-100 bg-gray-50 p-8 text-center text-sm text-gray-400">
+                Enter your local cash price above to see the sensitivity grid.
+              </div>
+            )}
           </section>
 
           <p className="text-xs text-gray-400">
-            Breakeven = total cost ÷ APH yield. Compared against your{" "}
+            Breakeven = total cost ÷ yield. Compared against your{" "}
             <strong>local cash price</strong>, not futures. Cost defaults from{" "}
             {defaults ? "backend (GET /defaults)" : "local config"}.
           </p>
         </>
-      )}
+      ) : derived && entry ? (
+        <div className="rounded-xl border border-gray-100 bg-gray-50 p-6 text-center text-sm text-gray-400">
+          Enter a yield above 0 to see breakeven results.
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -352,29 +486,46 @@ function WholeFarmCard({
   const positive = totals.netMargin >= 0;
   const fmt = (n: number) =>
     `$${Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
-
   return (
-    <div className={`rounded-xl border bg-white p-5 shadow-sm flex flex-col gap-4 ${fromScenario ? "border-indigo-200" : "border-gray-200"}`}>
+    <div
+      className={`rounded-xl border bg-white p-5 shadow-sm flex flex-col gap-4 ${
+        fromScenario ? "border-indigo-200" : "border-gray-200"
+      }`}
+    >
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-gray-900">Whole-Farm Summary</h2>
+        <h2 className="text-base font-semibold text-gray-900">
+          Whole-Farm Summary
+        </h2>
         <span className="text-xs text-gray-400">
-          {totalAcres.toLocaleString()} total acres · {cropCount} crop{cropCount !== 1 ? "s" : ""}
-          {fromScenario && <span className="ml-1.5 text-indigo-500">· saved scenario</span>}
+          {totalAcres.toLocaleString()} total acres · {cropCount} crop
+          {cropCount !== 1 ? "s" : ""}
+          {fromScenario && (
+            <span className="ml-1.5 text-indigo-500">· saved scenario</span>
+          )}
         </span>
       </div>
       <div className="grid grid-cols-3 gap-4">
         <div>
           <p className="text-xs text-gray-500">Total Revenue</p>
-          <p className="text-lg font-bold tabular-nums text-gray-900">{fmt(totals.revenue)}</p>
+          <p className="text-lg font-bold tabular-nums text-gray-900">
+            {fmt(totals.revenue)}
+          </p>
         </div>
         <div>
           <p className="text-xs text-gray-500">Total Expense</p>
-          <p className="text-lg font-bold tabular-nums text-gray-900">{fmt(totals.expense)}</p>
+          <p className="text-lg font-bold tabular-nums text-gray-900">
+            {fmt(totals.expense)}
+          </p>
         </div>
         <div>
           <p className="text-xs text-gray-500">Net Margin</p>
-          <p className={`text-lg font-bold tabular-nums ${positive ? "text-emerald-700" : "text-red-600"}`}>
-            {positive ? "" : "−"}{fmt(totals.netMargin)}
+          <p
+            className={`text-lg font-bold tabular-nums ${
+              positive ? "text-emerald-700" : "text-red-600"
+            }`}
+          >
+            {positive ? "" : "−"}
+            {fmt(totals.netMargin)}
           </p>
         </div>
       </div>
@@ -382,53 +533,104 @@ function WholeFarmCard({
   );
 }
 
-function DecisionPanel({ result }: { result: BreakevenResult }) {
-  const clears = result.currentCashPrice >= result.breakevenPrice;
-  const margin = result.currentCashPrice - result.breakevenPrice;
-  const barMax = Math.max(result.currentCashPrice, result.breakevenPrice) * 1.2;
-  const pct = (v: number) => `${Math.min((v / barMax) * 100, 100).toFixed(1)}%`;
+function DecisionPanel({
+  cashPrice,
+  be,
+  margin,
+  revenue,
+}: {
+  cashPrice: number;
+  be: number;
+  margin: number;
+  revenue: number;
+}) {
+  const clears = cashPrice > 0 && cashPrice >= be;
+  const barMax = Math.max(cashPrice, be, 0.01) * 1.2;
+  const pct = (v: number) =>
+    `${Math.min((v / barMax) * 100, 100).toFixed(1)}%`;
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold text-gray-900">Decision</h2>
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-            clears ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
-          }`}
-        >
-          {clears ? "CLEARS BREAKEVEN" : "BELOW BREAKEVEN"}
-        </span>
+        {cashPrice > 0 ? (
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+              clears
+                ? "bg-emerald-100 text-emerald-800"
+                : "bg-amber-100 text-amber-800"
+            }`}
+          >
+            {clears ? "CLEARS BREAKEVEN" : "BELOW BREAKEVEN"}
+          </span>
+        ) : (
+          <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold bg-gray-100 text-gray-500">
+            ENTER CASH PRICE
+          </span>
+        )}
       </div>
 
       <div className="flex flex-col gap-2">
-        <Bar label="Local cash price" value={result.currentCashPrice} width={pct(result.currentCashPrice)} color="bg-blue-500" />
-        <Bar label="Breakeven" value={result.breakevenPrice} width={pct(result.breakevenPrice)} color="bg-gray-400" />
+        <Bar
+          label="Local cash price"
+          value={cashPrice}
+          width={pct(cashPrice)}
+          color="bg-blue-500"
+        />
+        <Bar
+          label="Breakeven"
+          value={be}
+          width={pct(be)}
+          color="bg-gray-400"
+        />
       </div>
 
       <div className="flex flex-wrap gap-x-8 gap-y-1 text-sm">
-        <span className="text-gray-500">
-          Margin{" "}
-          <span className={`font-semibold ${margin >= 0 ? "text-emerald-700" : "text-red-600"}`}>
-            {margin >= 0 ? "+" : "−"}${Math.abs(margin).toFixed(2)}/bu
+        {cashPrice > 0 && (
+          <span className="text-gray-500">
+            Margin vs BE{" "}
+            <span
+              className={`font-semibold ${
+                cashPrice - be >= 0 ? "text-emerald-700" : "text-red-600"
+              }`}
+            >
+              {cashPrice - be >= 0 ? "+" : "−"}$
+              {Math.abs(cashPrice - be).toFixed(2)}/bu
+            </span>
           </span>
-        </span>
+        )}
         <span className="text-gray-500">
           Net margin{" "}
-          <span className={`font-semibold ${result.netMarginPerAcre >= 0 ? "text-emerald-700" : "text-red-600"}`}>
-            {result.netMarginPerAcre >= 0 ? "+" : "−"}${Math.abs(result.netMarginPerAcre).toFixed(0)}/acre
+          <span
+            className={`font-semibold ${
+              margin >= 0 ? "text-emerald-700" : "text-red-600"
+            }`}
+          >
+            {margin >= 0 ? "+" : "−"}${Math.abs(margin).toFixed(0)}/acre
           </span>
         </span>
         <span className="text-gray-500">
-          Total revenue{" "}
-          <span className="font-semibold text-gray-800">${result.totalRevenuePerAcre.toFixed(0)}/acre</span>
+          Revenue{" "}
+          <span className="font-semibold text-gray-800">
+            ${revenue.toFixed(0)}/acre
+          </span>
         </span>
       </div>
     </div>
   );
 }
 
-function Bar({ label, value, width, color }: { label: string; value: number; width: string; color: string }) {
+function Bar({
+  label,
+  value,
+  width,
+  color,
+}: {
+  label: string;
+  value: number;
+  width: string;
+  color: string;
+}) {
   return (
     <div className="flex items-center gap-3">
       <span className="w-28 shrink-0 text-xs text-gray-500">{label}</span>
@@ -442,13 +644,37 @@ function Bar({ label, value, width, color }: { label: string; value: number; wid
   );
 }
 
-function Stat({ label, value, hint, strong }: { label: string; value: string; hint?: string; strong?: boolean }) {
+function Stat({
+  label,
+  value,
+  hint,
+  strong,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  strong?: boolean;
+}) {
   return (
-    <div className={`rounded-xl border bg-white p-3 shadow-sm ${strong ? "border-gray-300" : "border-gray-200"}`}>
+    <div
+      className={`rounded-xl border bg-white p-3 shadow-sm ${
+        strong ? "border-gray-300" : "border-gray-200"
+      }`}
+    >
       <p className="text-xs text-gray-500">{label}</p>
-      <p className={`tabular-nums ${strong ? "text-lg font-bold text-gray-900" : "text-base font-semibold text-gray-800"}`}>
+      <p
+        className={`tabular-nums ${
+          strong
+            ? "text-lg font-bold text-gray-900"
+            : "text-base font-semibold text-gray-800"
+        }`}
+      >
         {value}
-        {hint && <span className="ml-1 text-xs font-normal text-gray-400">{hint}</span>}
+        {hint && (
+          <span className="ml-1 text-xs font-normal text-gray-400">
+            {hint}
+          </span>
+        )}
       </p>
     </div>
   );
