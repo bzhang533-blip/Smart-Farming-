@@ -29,8 +29,8 @@ export const CROP_CONFIG: Record<Crop, CropConfig> = {
     revenueDefaults: { aph: 210, cashPrice: 4.2, govtPaymentPerAcre: 0 },
     sensitivity: { yieldStep: 10, yieldExtent: 3, priceStep: 0.25, priceExtent: 4 },
   },
-  soybean: {
-    label: "Soybean",
+  soybeans: {
+    label: "Soybeans",
     unit: "bu/acre",
     futuresSymbol: "ZS",
     revenueDefaults: { aph: 60, cashPrice: 10.2, govtPaymentPerAcre: 0 },

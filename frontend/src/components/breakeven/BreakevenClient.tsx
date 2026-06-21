@@ -1,66 +1,182 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { BreakevenResult, FarmProfile } from "@/types";
+import { useEffect, useMemo, useState } from "react";
+import type { BreakevenResult, DefaultsResponse, FarmProfile } from "@/types";
 import { getFarmProfile } from "@/lib/api/farm";
 import { calculateBreakeven } from "@/lib/api/breakeven";
+import { getDefaults } from "@/lib/api/defaults";
+import {
+  createScenario,
+  deleteScenario,
+  getScenario,
+  listScenarios,
+  type ScenarioSummary,
+} from "@/lib/api/scenarios";
 import { CROP_CONFIG } from "@/config/crops";
 import { mergeCostItems } from "@/config/costModel";
+import { wholeFarm } from "@/lib/calc/calc";
+import type { CostLine, CropKey, Scenario } from "@/lib/calc/scenario";
 import SensitivityGrid from "./SensitivityGrid";
 
 interface Props {
   farmId: string;
 }
 
+/**
+ * Assembles a Scenario from current farm data + per-field breakeven results.
+ * Uses backend defaults (per-crop CostLine[]) when available, so corn and
+ * soybeans get their own correct cost lines rather than a shared farm-level guess.
+ */
+function buildScenario(
+  farm: FarmProfile,
+  results: Map<string, BreakevenResult>,
+  defaults: DefaultsResponse | null,
+): Scenario {
+  return {
+    year: 2026,
+    region: "midwest",
+    farm: { name: farm.name },
+    crops: farm.fields
+      .filter((f) => results.has(f.fieldId))
+      .map((f) => {
+        const res = results.get(f.fieldId)!;
+        const cropKey = f.crop as CropKey; // safe: Crop ⊆ CropKey after "soybeans" migration
+        const cropDefs = defaults?.crops[cropKey];
+
+        const directCosts: CostLine[] = cropDefs?.directCosts ??
+          farm.costStructure
+            .filter((c) => c.category === "direct")
+            .map((c) => ({ key: c.key, label: c.key, value: c.valuePerAcre, source: "user" as const }));
+
+        const landCostPerAcre = cropDefs?.landCostPerAcre ??
+          (farm.costStructure.find((c) => c.key === "land-cost")?.valuePerAcre ?? 0);
+        const machineryCostPerAcre = cropDefs?.machineryCostPerAcre ??
+          (farm.costStructure.find((c) => c.key === "machinery-cost")?.valuePerAcre ?? 0);
+
+        return {
+          crop: cropKey,
+          acres: f.acres,
+          yieldBasis: "aph" as const,
+          yieldBuPerAcre: f.aph,
+          cashPricePerBu: res.currentCashPrice,
+          govtPaymentPerAcre: CROP_CONFIG[f.crop].revenueDefaults.govtPaymentPerAcre,
+          directCosts,
+          landCostPerAcre,
+          machineryCostPerAcre,
+        };
+      }),
+  };
+}
+
 export default function BreakevenClient({ farmId }: Props) {
   const [farm, setFarm] = useState<FarmProfile | null>(null);
   const [fieldId, setFieldId] = useState<string | null>(null);
-  const [result, setResult] = useState<BreakevenResult | null>(null);
+  const [allResults, setAllResults] = useState<Map<string, BreakevenResult>>(new Map());
+  const [defaults, setDefaults] = useState<DefaultsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 1) 加载农场档案
+  // Scenario state
+  const [scenarioList, setScenarioList] = useState<ScenarioSummary[]>([]);
+  const [loadedScenario, setLoadedScenario] = useState<(Scenario & { id: string }) | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+
+  // 1) Load farm profile + defaults in parallel
   useEffect(() => {
-    getFarmProfile(farmId)
-      .then((f) => {
+    Promise.all([getFarmProfile(farmId), getDefaults()])
+      .then(([f, defs]) => {
         setFarm(f);
         setFieldId(f.fields[0]?.fieldId ?? null);
+        setDefaults(defs);
         setLoading(false);
       })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Failed to load farm profile");
+        setError(err instanceof Error ? err.message : "Failed to load");
         setLoading(false);
       });
   }, [farmId]);
 
-  // 2) 选中字段变化 → 请求权威保本计算（mock）
+  // 2) When farm loads, compute breakeven for ALL fields in parallel
   useEffect(() => {
-    if (!farm || !fieldId) return;
-    const field = farm.fields.find((f) => f.fieldId === fieldId);
-    if (!field) return;
-    const cfg = CROP_CONFIG[field.crop];
-    calculateBreakeven({
-      farmId,
-      fieldId: field.fieldId,
-      crop: field.crop,
-      season: "2026",
-      costItems: mergeCostItems(farm.costStructure, field.crop),
-      aph: field.aph,
-      zip: field.zip,
-      govtPaymentPerAcre: cfg.revenueDefaults.govtPaymentPerAcre,
-    })
-      .then((r) => {
-        setResult(r);
+    if (!farm) return;
+    Promise.all(
+      farm.fields.map((f) =>
+        calculateBreakeven({
+          farmId,
+          fieldId: f.fieldId,
+          crop: f.crop,
+          season: "2026",
+          costItems: mergeCostItems(farm.costStructure, f.crop),
+          aph: f.aph,
+          zip: f.zip,
+          govtPaymentPerAcre: CROP_CONFIG[f.crop].revenueDefaults.govtPaymentPerAcre,
+        }),
+      ),
+    )
+      .then((results) => {
+        setAllResults(new Map(results.map((r, i) => [farm.fields[i].fieldId, r])));
         setError(null);
       })
       .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : "Breakeven calculation failed")
+        setError(err instanceof Error ? err.message : "Breakeven calculation failed"),
       );
-  }, [farm, fieldId, farmId]);
+  }, [farm, farmId]);
 
-  // 结果是否对应当前选中字段（用于「更新中」提示，避免在 effect 内同步 setState）。
-  const calcStale = !!result && result.fieldId !== fieldId;
+  // 3) Load scenario list
+  useEffect(() => {
+    listScenarios()
+      .then((res) => setScenarioList(res.scenarios))
+      .catch(() => { /* non-fatal */ });
+  }, []);
 
+  const result = allResults.get(fieldId ?? "");
+  const resultsReady = !!farm && farm.fields.every((f) => allResults.has(f.fieldId));
+
+  const wholeFarmTotals = useMemo(() => {
+    if (loadedScenario) return wholeFarm(loadedScenario);
+    if (!farm || !resultsReady) return null;
+    return wholeFarm(buildScenario(farm, allResults, defaults));
+  }, [farm, allResults, resultsReady, defaults, loadedScenario]);
+
+  // ── Save current scenario ────────────────────────────────────────────────
+  async function handleSave() {
+    if (!farm || !resultsReady) return;
+    setSaving(true);
+    setSaveMsg(null);
+    try {
+      const scenario = buildScenario(farm, allResults, defaults);
+      const { id } = await createScenario(scenario);
+      const refreshed = await listScenarios();
+      setScenarioList(refreshed.scenarios);
+      setSaveMsg(`Saved (${id.slice(-6)})`);
+      setTimeout(() => setSaveMsg(null), 3000);
+    } catch {
+      setSaveMsg("Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // ── Load a saved scenario ────────────────────────────────────────────────
+  async function handleLoad(id: string) {
+    try {
+      const scenario = await getScenario(id);
+      setLoadedScenario(scenario);
+    } catch {
+      setError("Failed to load scenario");
+    }
+  }
+
+  async function handleDelete(id: string) {
+    try {
+      await deleteScenario(id);
+      setScenarioList((l) => l.filter((s) => s.id !== id));
+      if (loadedScenario?.id === id) setLoadedScenario(null);
+    } catch { /* ignore */ }
+  }
+
+  // ── Render guards ─────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
@@ -86,12 +202,62 @@ export default function BreakevenClient({ farmId }: Props) {
   return (
     <div className="p-6 max-w-4xl mx-auto flex flex-col gap-6">
       {/* Header */}
-      <div className="flex flex-col gap-0.5">
-        <h1 className="text-xl font-semibold text-gray-900">Breakeven &amp; Sensitivity</h1>
-        <p className="text-sm text-gray-500">
-          {farm.name} · Local cash price vs. true breakeven — never futures.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-0.5">
+          <h1 className="text-xl font-semibold text-gray-900">Breakeven &amp; Sensitivity</h1>
+          <p className="text-sm text-gray-500">
+            {farm.name} · Local cash price vs. true breakeven — never futures.
+          </p>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving || !resultsReady}
+          className="shrink-0 rounded-lg border border-blue-600 bg-white px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-40 transition-colors"
+        >
+          {saving ? "Saving…" : saveMsg ?? "Save Scenario"}
+        </button>
       </div>
+
+      {/* Saved scenarios picker */}
+      {scenarioList.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Saved Scenarios</p>
+          <div className="flex flex-wrap gap-2">
+            {scenarioList.map((s) => {
+              const active = loadedScenario?.id === s.id;
+              return (
+                <div key={s.id} className="flex items-center gap-1">
+                  <button
+                    onClick={() => (active ? setLoadedScenario(null) : handleLoad(s.id))}
+                    className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                      active
+                        ? "border-indigo-600 bg-indigo-50 text-indigo-700"
+                        : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                    }`}
+                  >
+                    {s.name}
+                    <span className="ml-1.5 text-xs font-normal text-gray-400">
+                      {s.season}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => handleDelete(s.id)}
+                    title="Delete"
+                    className="rounded px-1 py-1 text-gray-300 hover:text-red-400 transition-colors text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          {loadedScenario && (
+            <p className="text-xs text-indigo-600">
+              Viewing saved scenario — click again to return to current farm data.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Field selector */}
       <div className="flex flex-wrap gap-2">
@@ -116,6 +282,24 @@ export default function BreakevenClient({ farmId }: Props) {
         })}
       </div>
 
+      {/* Whole-farm dollar totals */}
+      {wholeFarmTotals && (
+        <WholeFarmCard
+          totals={wholeFarmTotals}
+          totalAcres={
+            loadedScenario
+              ? loadedScenario.crops.reduce((s, c) => s + c.acres, 0)
+              : farm.fields.reduce((s, f) => s + f.acres, 0)
+          }
+          cropCount={
+            loadedScenario
+              ? loadedScenario.crops.length
+              : farm.fields.length
+          }
+          fromScenario={!!loadedScenario}
+        />
+      )}
+
       {result && field && (
         <>
           <DecisionPanel result={result} />
@@ -134,9 +318,7 @@ export default function BreakevenClient({ farmId }: Props) {
               <h2 className="text-base font-semibold text-gray-900">
                 Price × Yield sensitivity
               </h2>
-              <span className="text-xs text-gray-400">
-                Net margin / acre {calcStale && "· updating…"}
-              </span>
+              <span className="text-xs text-gray-400">Net margin / acre</span>
             </div>
             <SensitivityGrid
               matrix={result.sensitivityMatrix}
@@ -146,11 +328,56 @@ export default function BreakevenClient({ farmId }: Props) {
           </section>
 
           <p className="text-xs text-gray-400">
-            Breakeven = total cost ÷ APH yield. Figures are authoritative from the backend
-            contract (mock here). Compared against your <strong>local cash price</strong>, not futures.
+            Breakeven = total cost ÷ APH yield. Compared against your{" "}
+            <strong>local cash price</strong>, not futures. Cost defaults from{" "}
+            {defaults ? "backend (GET /defaults)" : "local config"}.
           </p>
         </>
       )}
+    </div>
+  );
+}
+
+function WholeFarmCard({
+  totals,
+  totalAcres,
+  cropCount,
+  fromScenario,
+}: {
+  totals: { revenue: number; expense: number; netMargin: number };
+  totalAcres: number;
+  cropCount: number;
+  fromScenario: boolean;
+}) {
+  const positive = totals.netMargin >= 0;
+  const fmt = (n: number) =>
+    `$${Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+
+  return (
+    <div className={`rounded-xl border bg-white p-5 shadow-sm flex flex-col gap-4 ${fromScenario ? "border-indigo-200" : "border-gray-200"}`}>
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-semibold text-gray-900">Whole-Farm Summary</h2>
+        <span className="text-xs text-gray-400">
+          {totalAcres.toLocaleString()} total acres · {cropCount} crop{cropCount !== 1 ? "s" : ""}
+          {fromScenario && <span className="ml-1.5 text-indigo-500">· saved scenario</span>}
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <p className="text-xs text-gray-500">Total Revenue</p>
+          <p className="text-lg font-bold tabular-nums text-gray-900">{fmt(totals.revenue)}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500">Total Expense</p>
+          <p className="text-lg font-bold tabular-nums text-gray-900">{fmt(totals.expense)}</p>
+        </div>
+        <div>
+          <p className="text-xs text-gray-500">Net Margin</p>
+          <p className={`text-lg font-bold tabular-nums ${positive ? "text-emerald-700" : "text-red-600"}`}>
+            {positive ? "" : "−"}{fmt(totals.netMargin)}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
