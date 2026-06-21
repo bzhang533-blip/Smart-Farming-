@@ -375,7 +375,7 @@ export default function BreakevenClient({ farmId }: Props) {
       )}
 
       {/* Per-field results */}
-      {derived && entry && (
+      {derived && entry && entry.yieldBuPerAcre > 0 ? (
         <>
           <DecisionPanel
             cashPrice={cashPrice}
@@ -463,7 +463,11 @@ export default function BreakevenClient({ farmId }: Props) {
             {defaults ? "backend (GET /defaults)" : "local config"}.
           </p>
         </>
-      )}
+      ) : derived && entry ? (
+        <div className="rounded-xl border border-gray-100 bg-gray-50 p-6 text-center text-sm text-gray-400">
+          Enter a yield above 0 to see breakeven results.
+        </div>
+      ) : null}
     </div>
   );
 }
