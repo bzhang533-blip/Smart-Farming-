@@ -1,8 +1,6 @@
 import { http, HttpResponse } from "msw";
-import type { BreakevenRequest } from "@/types";
 import type { Scenario } from "@/lib/calc/scenario";
 import { mockFarmProfile, mockMachinery } from "./data/farm";
-import { breakevenFromRequest } from "./data/breakeven";
 import { mockDefaults } from "./data/defaults";
 
 // ── In-memory scenario store (browser session lifetime) ──────────────────────
@@ -54,12 +52,6 @@ export const handlers = [
   http.get("/api/farm/machinery", () =>
     HttpResponse.json(mockMachinery),
   ),
-
-  // Breakeven calculation (legacy mock — stays until data flow is refactored)
-  http.post("/api/breakeven/calculate", async ({ request }) => {
-    const body = (await request.json().catch(() => ({}))) as Partial<BreakevenRequest>;
-    return HttpResponse.json(breakevenFromRequest(body));
-  }),
 
   // GET /defaults
   http.get("/defaults", () => HttpResponse.json(mockDefaults)),
