@@ -19,7 +19,7 @@ export const mockFarmProfile: FarmProfile = {
       name: "South Field",
       acres: 240,
       zip: "50126",
-      crop: "soybean",
+      crop: "soybeans",
       aph: 60,
     },
   ],

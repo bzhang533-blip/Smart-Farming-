@@ -6,7 +6,18 @@
 
 ## 进行中
 
-*(暂无进行中的任务。)*
+### [2026-06-20] Wire GET /defaults + Scenario CRUD (Save / Load)
+
+**目标**：后端已就绪（`GET /defaults`、`POST/GET/DELETE /scenarios`），前端补齐三项缺口：① `"soybean"→"soybeans"` 迁移（前置条件，否则 load 流程 type 不对）；② 改为从 `/defaults` 拉取每作物成本默认值；③ 保存场景 / 选取并加载场景的 UI。
+
+**计划**：
+- [x] Step 0 — `types/common.ts`：`Crop = "corn" | "soybeans"`；更新 `config/crops.ts`、`config/costModel.ts`、`lib/mocks/data/farm.ts`；验 tsc 零错
+- [x] Step 1 — 新建 `types/defaults.ts`（`DefaultsResponse`、`DefaultsCropEntry`）；新建 `lib/api/defaults.ts`（`getDefaults()`）
+- [x] Step 2 — 新建 `lib/api/scenarios.ts`（`listScenarios`、`getScenario`、`createScenario`、`deleteScenario`）
+- [x] Step 3 — 新建 `lib/mocks/data/defaults.ts`（mock 数据）；`handlers.ts` 加 `/defaults`、`/scenarios` 及 `/scenarios/:id` mock
+- [x] Step 4 — `BreakevenClient.tsx`：fetch defaults on load；`buildScenario()` 改用 defaults；去掉 `as unknown as CropKey` 强转
+- [x] Step 5 — `BreakevenClient.tsx`：fetch 场景列表；Save Scenario 按钮；场景 picker（选中 → load → `wholeFarm()` 刷新 WholeFarmCard）
+- [x] Step 6 — `npx tsc --noEmit` + `npm test` 全绿；验 UI 行为
 
 ---
 

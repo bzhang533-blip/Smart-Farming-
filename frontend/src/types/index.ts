@@ -16,3 +16,4 @@ export type {
   SensitivityMatrix,
   BreakevenResult,
 } from "./breakeven";
+export type { DefaultsCropEntry, DefaultsResponse } from "./defaults";
