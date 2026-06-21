@@ -10,10 +10,4 @@ export type {
   FarmProfile,
   MachineryListResponse,
 } from "./farm";
-export type {
-  BreakevenRequest,
-  CostSubtotals,
-  SensitivityMatrix,
-  BreakevenResult,
-} from "./breakeven";
 export type { DefaultsCropEntry, DefaultsResponse } from "./defaults";
