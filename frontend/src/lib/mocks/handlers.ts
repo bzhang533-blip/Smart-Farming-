@@ -15,7 +15,12 @@ interface StoredScenario extends Record<string, unknown> {
 let scenarioStore: StoredScenario[] = [];
 
 function newId(): string {
-  return `scn_${Date.now()}${Math.random().toString(16).slice(2, 8)}`;
+  const bytes = new Uint8Array(3);
+  crypto.getRandomValues(bytes);
+  const hex = Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return `scn_${Date.now()}${hex}`;
 }
 
 function summaryFor(s: StoredScenario) {
