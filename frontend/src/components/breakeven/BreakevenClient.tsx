@@ -12,7 +12,6 @@ import {
 import { getFarmProfile } from "@/lib/api/farm";
 import {
   breakevenPrice,
-  breakevenYield,
   netMarginPerAcre,
   revenuePerAcre,
   sensitivityGrid,
@@ -22,34 +21,16 @@ import {
 } from "@/lib/calc/calc";
 import type { CropEntry, CropKey, Scenario } from "@/lib/calc/scenario";
 import { CROP_CONFIG } from "@/config/crops";
-import type { DefaultsResponse, FarmProfile, Field } from "@/types";
+import type { FarmProfile, Field } from "@/types";
 import FieldInputPanel, { type FieldInputs } from "./FieldInputPanel";
 import SensitivityGrid from "./SensitivityGrid";
+import { useFarmStore } from "@/lib/store/farmStore";
 
 interface Props {
   farmId: string;
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
-
-function initFieldInputs(
-  farm: FarmProfile,
-  defaults: DefaultsResponse,
-): Map<string, FieldInputs> {
-  const map = new Map<string, FieldInputs>();
-  for (const field of farm.fields) {
-    const cropKey = field.crop as CropKey;
-    const cropDefs = defaults.crops[cropKey];
-    map.set(field.fieldId, {
-      cashPricePerBu: 0,
-      yieldBuPerAcre: field.aph,
-      landCostPerAcre: cropDefs?.landCostPerAcre ?? 0,
-      machineryCostPerAcre: cropDefs?.machineryCostPerAcre ?? 0,
-      directCosts: cropDefs?.directCosts ?? [],
-    });
-  }
-  return map;
-}
 
 function toCropEntry(field: Field, inputs: FieldInputs): CropEntry {
   return {
@@ -84,15 +65,50 @@ function buildScenario(
 }
 
 export default function BreakevenClient({ farmId }: Props) {
-  const [farm, setFarm] = useState<FarmProfile | null>(null);
-  const [defaults, setDefaults] = useState<DefaultsResponse | null>(null);
-  const [fieldId, setFieldId] = useState<string | null>(null);
-  const [fieldInputs, setFieldInputs] = useState<Map<string, FieldInputs>>(
-    new Map(),
+  // --- Store-based state ---
+  const farm = useFarmStore((s) => s.farm);
+  const defaults = useFarmStore((s) => s.defaults);
+  const fieldInputs = useFarmStore((s) => s.fieldInputs);
+  const defaultFieldInputs = useFarmStore((s) => s.defaultFieldInputs);
+  const initFromFetch = useFarmStore((s) => s.initFromFetch);
+  const storeUpdateFieldInputs = useFarmStore((s) => s.updateFieldInputs);
+
+  // selectedFieldId tracks explicit user picks; null means "show first field".
+  const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
+  // Derive the active fieldId: use explicit selection if valid, else first field.
+  const fieldId =
+    selectedFieldId && farm?.fields.some((f) => f.fieldId === selectedFieldId)
+      ? selectedFieldId
+      : (farm?.fields[0]?.fieldId ?? null);
+
+  // Initialize to false if store already has data (avoids skeleton flash).
+  const [loading, setLoading] = useState(
+    () => useFarmStore.getState().farm === null,
   );
-  const [defaultFieldInputs, setDefaultFieldInputs] = useState<Map<string, FieldInputs>>(new Map());
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Fallback: if store is empty (user navigated directly to /breakeven),
+  // fetch from the API and seed the store.
+  useEffect(() => {
+    if (useFarmStore.getState().farm !== null) return;
+    let cancelled = false;
+    Promise.all([getFarmProfile(farmId), getDefaults()])
+      .then(([f, defs]) => {
+        if (!cancelled) {
+          initFromFetch(f, defs);
+          setLoading(false);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load");
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [farmId, initFromFetch]);
 
   const [priceExtent, setPriceExtent] = useState(4);
   const [yieldExtent, setYieldExtent] = useState(4);
@@ -103,30 +119,6 @@ export default function BreakevenClient({ farmId }: Props) {
   >(null);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
-
-  useEffect(() => {
-    Promise.all([getFarmProfile(farmId), getDefaults()])
-      .then(([f, defs]) => {
-        setFarm(f);
-        setDefaults(defs);
-        setFieldId(f.fields[0]?.fieldId ?? null);
-        const seeded = initFieldInputs(f, defs);
-        setFieldInputs(seeded);
-        setDefaultFieldInputs(
-          new Map(
-            [...seeded.entries()].map(([k, v]) => [
-              k,
-              { ...v, directCosts: v.directCosts.map((c) => ({ ...c })) },
-            ]),
-          ),
-        );
-        setLoading(false);
-      })
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Failed to load");
-        setLoading(false);
-      });
-  }, [farmId]);
 
   useEffect(() => {
     listScenarios()
@@ -151,7 +143,6 @@ export default function BreakevenClient({ farmId }: Props) {
     if (!entry) return null;
     return {
       be: breakevenPrice(entry),
-      beYield: breakevenYield(entry),
       margin: netMarginPerAcre(entry),
       revenue: revenuePerAcre(entry),
       direct: totalDirectExpense(entry),
@@ -188,14 +179,23 @@ export default function BreakevenClient({ farmId }: Props) {
   );
 
   const wholeFarmTotals = useMemo(() => {
-    if (loadedScenario) return wholeFarm(loadedScenario);
+    if (loadedScenario) {
+      const anyPriceEntered = loadedScenario.crops.some(
+        (c) => c.cashPricePerBu > 0,
+      );
+      if (!anyPriceEntered) return null;
+      return wholeFarm(loadedScenario);
+    }
     if (!farm || fieldInputs.size === 0) return null;
     const scenario = buildScenario(farm, fieldInputs);
-    return scenario.crops.length > 0 ? wholeFarm(scenario) : null;
+    if (scenario.crops.length === 0) return null;
+    const anyPriceEntered = scenario.crops.some((c) => c.cashPricePerBu > 0);
+    if (!anyPriceEntered) return null;
+    return wholeFarm(scenario);
   }, [farm, fieldInputs, loadedScenario]);
 
   function updateFieldInputs(fid: string, updated: FieldInputs) {
-    setFieldInputs((prev) => new Map(prev).set(fid, updated));
+    storeUpdateFieldInputs(fid, updated);
     setLoadedScenario(null);
   }
 
@@ -330,7 +330,7 @@ export default function BreakevenClient({ farmId }: Props) {
           return (
             <button
               key={f.fieldId}
-              onClick={() => setFieldId(f.fieldId)}
+              onClick={() => setSelectedFieldId(f.fieldId)}
               className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
                 active
                   ? "border-blue-600 bg-blue-50 text-blue-700"
@@ -448,7 +448,7 @@ export default function BreakevenClient({ farmId }: Props) {
                 priceAxis={priceAxis}
                 yieldAxis={yieldAxis}
                 centerPrice={cashPrice}
-                centerYield={yieldBu}
+                centerYield={Math.round(yieldBu)}
               />
             ) : (
               <div className="rounded-xl border border-gray-100 bg-gray-50 p-8 text-center text-sm text-gray-400">
