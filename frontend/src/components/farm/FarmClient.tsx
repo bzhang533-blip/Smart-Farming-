@@ -67,6 +67,16 @@ export default function FarmClient({ farmId }: Props) {
     };
   }, [farmId, initFromFetch]);
 
+  if (error) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto">
+        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      </div>
+    );
+  }
+
   if (loading || !farm) {
     return (
       <div className="p-6 max-w-4xl mx-auto space-y-8">
@@ -76,16 +86,6 @@ export default function FarmClient({ farmId }: Props) {
           <SkeletonBlock className="h-28" />
         </div>
         <SkeletonBlock className="h-64" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-6 max-w-4xl mx-auto">
-        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
       </div>
     );
   }
