@@ -26,7 +26,7 @@ v1 = 一个最简单的**单作物盈亏计算器**。后端在 v1 里只做两�
 - 金额单位:USD(美元),保留 2 位小数
 - 产量单位:bu/acre(蒲式耳 / 英亩)
 - 面积单位:acres(英亩)
-- 作物类型:`"corn"` | `"soybean"`(预留 `"other"` 槽)
+- 作物类型:`"corn"` | `"soybeans"`(预留 `"other"` 槽)
 - 成本科目分类:`"direct"` | `"capital"` | `"netFamilyLiving"`;科目 `key` 与前端 `config/costModel.ts` 的 `COST_ITEM_CATALOG` 同源
 
 ---
@@ -48,31 +48,36 @@ v1 = 一个最简单的**单作物盈亏计算器**。后端在 v1 里只做两�
 
 ```json
 {
-  "region": "corn-belt",
+  "year": 2026,
+  "region": "midwest",
+  "interestRatePct": 8.0,
   "crops": {
     "corn": {
-      "revenueDefaults": { "aph": 210, "cashPrice": 4.2, "govtPaymentPerAcre": 0 },
-      "costItems": [
-        { "key": "seed-plants-treated", "category": "direct", "valuePerAcre": 135 },
-        { "key": "fertilizer-lime", "category": "direct", "valuePerAcre": 200 },
-        { "key": "land-cost", "category": "capital", "valuePerAcre": 265 },
-        { "key": "machinery-cost", "category": "capital", "valuePerAcre": 65 },
-        { "key": "family-living-expense", "category": "netFamilyLiving", "valuePerAcre": 0 },
-        { "key": "non-farm-income-wages", "category": "netFamilyLiving", "valuePerAcre": 0 }
-      ]
+      "directCosts": [
+        { "key": "seed", "label": "Seed/Plants (Treated)", "value": 135, "source": "default" },
+        { "key": "fertilizer_lime", "label": "Fertilizer and Lime", "value": 200, "source": "default" }
+      ],
+      "landCostPerAcre": 265,
+      "machineryCostPerAcre": 65
+    },
+    "soybeans": {
+      "directCosts": [
+        { "key": "seed", "label": "Seed/Plants (Treated)", "value": 65, "source": "default" }
+      ],
+      "landCostPerAcre": 265,
+      "machineryCostPerAcre": 65
     }
-  }
+  },
+  "sources": [{ "label": "ISU crop budgets 2026", "url": "..." }]
 }
 ```
 
-> - `costItems` 为**分类成本项数组**(吸收自 Compeer Grain Margin Manager;全量科目 17 direct + 2 capital + 2 netFamilyLiving 见 `tasks/domain-cost-model.md` 与 `config/costModel.ts`)。
-> - `non-farm-income-wages` 在 netFamilyLiving 内为抵减项(sign = -1)。
-> - 土地 / 农机各是**一个可填的 `$/acre` 数字**(`land-cost` / `machinery-cost`),不是计算模块。
+> Schema 与 Scenario 对齐(见 `docs/v1-alignment.md` §6)。directCosts 为分类成本项数组;landCostPerAcre / machineryCostPerAcre 为用户可填的单位成本。
 >
 > TODO: 待后端确认 —
 > 1. `region` 维度的粒度(州 / ZIP / 通用),以及缺省时返回什么。
-> 2. 科目 `key` 枚举集是否由后端下发(便于加项时不改前端),还是前端 `COST_ITEM_CATALOG` 为准、后端只覆盖数值。
-> 3. 默认值是否按**作物**分别维护(corn / soybean 不同)。
+> 2. directCosts 的完整列表是否由后端下发,还是前端 `COST_ITEM_CATALOG` 为准、后端只覆盖数值。
+> 3. 默认值是否按**作物**分别维护(corn / soybeans 不同)。
 
 ---
 
@@ -152,3 +157,4 @@ v1 = 一个最简单的**单作物盈亏计算器**。后端在 v1 里只做两�
 | 2026-06-04 | 初始草稿(决策驾驶舱模型:市场数据 / 后端 breakeven 计算 / 决策信号),全部待后端确认 | 已废弃 |
 | 2026-06-07 | 吸收 Compeer:costStructure 改分类成本项数组;breakeven 接口加 costItems/aph/zip + subtotals/sensitivityMatrix | 已废弃 |
 | 2026-06-13 | **重写为 v1 surface**:删市场数据层 / 后端 breakeven 计算端点 / 决策驾驶舱信号(均移出 v1 范围);改为 `GET /defaults` + Scenario 持久化(CRUD);明确计算引擎在前端 TS 唯一实现、后端不算账;Scenario schema 以 `docs/v1-alignment.md` 为准 | TODO |
+| 2026-06-23 | `GET /defaults` response shape updated: `costItems[]` (old Compeer schema) → `directCosts: CostLine[]` + `landCostPerAcre` + `machineryCostPerAcre` per crop. Canonical crop name corrected from `"soybean"` → `"soybeans"`. | 完成 |
