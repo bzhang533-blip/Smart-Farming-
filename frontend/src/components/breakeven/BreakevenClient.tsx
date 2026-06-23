@@ -12,7 +12,6 @@ import {
 import { getFarmProfile } from "@/lib/api/farm";
 import {
   breakevenPrice,
-  breakevenYield,
   netMarginPerAcre,
   revenuePerAcre,
   sensitivityGrid,
@@ -144,7 +143,6 @@ export default function BreakevenClient({ farmId }: Props) {
     if (!entry) return null;
     return {
       be: breakevenPrice(entry),
-      beYield: breakevenYield(entry),
       margin: netMarginPerAcre(entry),
       revenue: revenuePerAcre(entry),
       direct: totalDirectExpense(entry),
@@ -181,10 +179,19 @@ export default function BreakevenClient({ farmId }: Props) {
   );
 
   const wholeFarmTotals = useMemo(() => {
-    if (loadedScenario) return wholeFarm(loadedScenario);
+    if (loadedScenario) {
+      const anyPriceEntered = loadedScenario.crops.some(
+        (c) => c.cashPricePerBu > 0,
+      );
+      if (!anyPriceEntered) return null;
+      return wholeFarm(loadedScenario);
+    }
     if (!farm || fieldInputs.size === 0) return null;
     const scenario = buildScenario(farm, fieldInputs);
-    return scenario.crops.length > 0 ? wholeFarm(scenario) : null;
+    if (scenario.crops.length === 0) return null;
+    const anyPriceEntered = scenario.crops.some((c) => c.cashPricePerBu > 0);
+    if (!anyPriceEntered) return null;
+    return wholeFarm(scenario);
   }, [farm, fieldInputs, loadedScenario]);
 
   function updateFieldInputs(fid: string, updated: FieldInputs) {
@@ -441,7 +448,7 @@ export default function BreakevenClient({ farmId }: Props) {
                 priceAxis={priceAxis}
                 yieldAxis={yieldAxis}
                 centerPrice={cashPrice}
-                centerYield={yieldBu}
+                centerYield={Math.round(yieldBu)}
               />
             ) : (
               <div className="rounded-xl border border-gray-100 bg-gray-50 p-8 text-center text-sm text-gray-400">
