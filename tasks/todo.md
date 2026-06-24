@@ -29,6 +29,19 @@
 
 ## 已完成
 
+### [2026-06-24] Prepare Dart backend deployment
+
+**目标**：为 v1 Dart backend 增加最小部署配置，使其可作为独立 web service 部署，再由 Vercel frontend 通过 `NEXT_PUBLIC_API_BASE` 连接。
+
+**计划**：
+- [x] 检查 backend 运行方式与端口约定
+- [x] 添加 Docker 部署配置，不改变 Dart 业务逻辑
+- [x] 本地验证 backend 启动与核心 endpoint
+- [x] 说明 Vercel 环境变量连接方式
+- [x] 更新审查小结并移入已完成
+
+**审查**：新增 `backend/Dockerfile`，使用 `dart:stable` 运行 `dart backend/backend.dart`，保持 backend 读取平台 `PORT` 的现有约定；未改 Dart 业务逻辑，未新增任何保本/盈亏计算端点。本地验证：`dart run backend/backend.dart --port=8082` 可启动，`GET /defaults?crop=corn` 与 `GET /scenarios` 返回 200，`dart analyze backend` 通过。Docker CLI 本机不可用，未能本地 build image。
+
 ### [2026-06-24] Fix deployed frontend standalone defaults
 
 **目标**：让 Vercel 部署版在没有 Dart 后端、`NEXT_PUBLIC_API_BASE` 为空时也能稳定加载 `/farm`，不再卡在 skeleton。
