@@ -29,6 +29,18 @@
 
 ## 已完成
 
+### [2026-06-24] Fix deployed frontend standalone defaults
+
+**目标**：让 Vercel 部署版在没有 Dart 后端、`NEXT_PUBLIC_API_BASE` 为空时也能稳定加载 `/farm`，不再卡在 skeleton。
+
+**计划**：
+- [x] 定位 `/farm` 初始化 fetch defaults 的失败路径
+- [x] 在 frontend API 层增加无后端时的本地 defaults 兜底
+- [x] 运行 lint / build 验证
+- [x] 更新审查小结并移入已完成
+
+**审查**：生产环境不启动 MSW，Vercel 上没有 `/defaults`、`/api/farm/profile`、`/api/farm/machinery`、`/scenarios` 路由，导致 `/farm` 一直停在 skeleton。已改为当 `NEXT_PUBLIC_API_BASE` 为空时，`lib/api/` 直接使用本地 mock/default 数据；未来配置真实 Dart 后端 URL 后仍走 API。验证：`npm run lint`、`npm run build` 均通过。
+
 ### [2026-06-18] 后端只接受 canonical `soybeans`
 
 **目标**：移除后端 `soybean` 兼容别名，只接受 v1 alignment canonical crop key：`soybeans`。
