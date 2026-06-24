@@ -29,6 +29,17 @@
 
 ## 已完成
 
+### [2026-06-24] Align frontend API base with v1 backend surface
+
+**目标**：连接真实 Dart backend 时，只把 v1 已支持的 `/defaults` 与 `/scenarios` 交给后端；farm profile/machinery 仍用本地 seed，避免请求不存在的 backend endpoint。
+
+**计划**：
+- [x] 调整 `lib/api/farm.ts` 保持本地 seed 数据
+- [x] 运行 lint / build 验证
+- [x] 提交并推送给 Vercel 重部署
+
+**审查**：v1 backend 只支持 `/defaults` 与 `/scenarios`，不支持 `/api/farm/profile` 或 `/api/farm/machinery`。已让 farm profile/machinery API wrapper 始终使用本地 seed/no-op update；真实 backend URL 仅影响 defaults 与 scenario CRUD。验证：`npm run lint`、`npm run build` 通过。
+
 ### [2026-06-24] Prepare Dart backend deployment
 
 **目标**：为 v1 Dart backend 增加最小部署配置，使其可作为独立 web service 部署，再由 Vercel frontend 通过 `NEXT_PUBLIC_API_BASE` 连接。
