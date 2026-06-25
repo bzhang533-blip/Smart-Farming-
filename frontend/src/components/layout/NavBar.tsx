@@ -2,31 +2,29 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, useUser } from "@clerk/nextjs";
 
 const LINKS = [
-  { href: "/",          label: "Overview"  },
   { href: "/farm",      label: "Farm"      },
   { href: "/breakeven", label: "Breakeven" },
 ];
 
 export default function NavBar() {
   const pathname = usePathname();
+  const { user } = useUser();
 
-  // Login page has its own full-page layout — no NavBar needed.
   if (pathname === "/login") return null;
 
   return (
     <nav className="border-b border-stone-200 bg-white px-6 py-3 flex items-center gap-6">
       <Link
-        href="/"
+        href="/farm"
         className="text-sm font-bold text-stone-900 mr-2 hover:text-amber-600 transition-colors"
       >
         Smart Farm
       </Link>
       {LINKS.map(({ href, label }) => {
-        const isActive =
-          href === "/" ? pathname === "/" : pathname.startsWith(href);
+        const isActive = pathname.startsWith(href);
         return (
           <Link
             key={href}
@@ -41,7 +39,15 @@ export default function NavBar() {
           </Link>
         );
       })}
-      <div className="ml-auto">
+      <div className="ml-auto flex items-center gap-3">
+        {user && (
+          <p className="text-sm text-stone-500 hidden sm:block">
+            Welcome,{" "}
+            <span className="font-semibold text-stone-700">
+              {user.primaryEmailAddress?.emailAddress ?? user.firstName}
+            </span>
+          </p>
+        )}
         <UserButton />
       </div>
     </nav>
