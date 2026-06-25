@@ -36,20 +36,16 @@ function summaryFor(s: StoredScenario) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const handlers = [
-  // Farm profile
-  http.get("/api/farm/profile/:farmId", () =>
+  // Farm profile (user-scoped — no farmId in URL)
+  http.get("/api/me/farm", () =>
     HttpResponse.json(mockFarmProfile),
   ),
 
-  http.post("/api/farm/profile", () =>
-    HttpResponse.json({ farmId: "farm-001" }, { status: 201 }),
-  ),
-
-  http.put("/api/farm/profile/:farmId", () =>
+  http.put("/api/me/farm", () =>
     HttpResponse.json({ ok: true }),
   ),
 
-  http.get("/api/farm/machinery", () =>
+  http.get("/api/me/farm/machinery", () =>
     HttpResponse.json(mockMachinery),
   ),
 

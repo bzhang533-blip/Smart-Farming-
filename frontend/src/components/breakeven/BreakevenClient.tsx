@@ -26,10 +26,6 @@ import FieldInputPanel, { type FieldInputs } from "./FieldInputPanel";
 import SensitivityGrid from "./SensitivityGrid";
 import { useFarmStore } from "@/lib/store/farmStore";
 
-interface Props {
-  farmId: string;
-}
-
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 function toCropEntry(field: Field, inputs: FieldInputs): CropEntry {
@@ -64,7 +60,7 @@ function buildScenario(
   };
 }
 
-export default function BreakevenClient({ farmId }: Props) {
+export default function BreakevenClient() {
   // --- Store-based state ---
   const farm = useFarmStore((s) => s.farm);
   const defaults = useFarmStore((s) => s.defaults);
@@ -92,7 +88,7 @@ export default function BreakevenClient({ farmId }: Props) {
   useEffect(() => {
     if (useFarmStore.getState().farm !== null) return;
     let cancelled = false;
-    Promise.all([getFarmProfile(farmId), getDefaults()])
+    Promise.all([getFarmProfile(), getDefaults()])
       .then(([f, defs]) => {
         if (!cancelled) {
           initFromFetch(f, defs);
@@ -108,7 +104,7 @@ export default function BreakevenClient({ farmId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [farmId, initFromFetch]);
+  }, [initFromFetch]);
 
   const [priceExtent, setPriceExtent] = useState(4);
   const [yieldExtent, setYieldExtent] = useState(4);
@@ -239,8 +235,8 @@ export default function BreakevenClient({ farmId }: Props) {
   if (loading) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
-        <div className="h-7 w-56 animate-pulse rounded bg-gray-200" />
-        <div className="mt-6 h-64 animate-pulse rounded-xl bg-gray-200" />
+        <div className="h-7 w-56 animate-pulse rounded bg-stone-200" />
+        <div className="mt-6 h-64 animate-pulse rounded-2xl bg-stone-200" />
       </div>
     );
   }
@@ -248,7 +244,7 @@ export default function BreakevenClient({ farmId }: Props) {
   if (error && !farm) {
     return (
       <div className="p-6 max-w-4xl mx-auto">
-        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-2xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       </div>
@@ -260,19 +256,19 @@ export default function BreakevenClient({ farmId }: Props) {
   return (
     <div className="p-6 max-w-4xl mx-auto flex flex-col gap-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-0.5">
-          <h1 className="text-xl font-semibold text-gray-900">
-            Breakeven &amp; Sensitivity
-          </h1>
-          <p className="text-sm text-gray-500">
-            {farm.name} · Local cash price vs. true breakeven — never futures.
+      <div className="border-b border-stone-100 pb-6 flex items-end justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-stone-400 mb-1">
+            {farm.name} · Breakeven &amp; Sensitivity
           </p>
+          <h1 className="text-3xl font-bold text-stone-900">
+            What do I need to sell at?
+          </h1>
         </div>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="shrink-0 rounded-lg border border-blue-600 bg-white px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-40 transition-colors"
+          className="shrink-0 rounded-lg border border-amber-400 bg-white px-3 py-1.5 text-sm font-semibold text-amber-600 hover:bg-amber-50 disabled:opacity-40 transition-colors"
         >
           {saving ? "Saving…" : (saveMsg ?? "Save Scenario")}
         </button>
@@ -281,7 +277,7 @@ export default function BreakevenClient({ farmId }: Props) {
       {/* Saved scenarios picker */}
       {scenarioList.length > 0 && (
         <div className="flex flex-col gap-2">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-stone-400">
             Saved Scenarios
           </p>
           <div className="flex flex-wrap gap-2">
@@ -293,21 +289,21 @@ export default function BreakevenClient({ farmId }: Props) {
                     onClick={() =>
                       active ? setLoadedScenario(null) : handleLoad(s.id)
                     }
-                    className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                    className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition-colors ${
                       active
-                        ? "border-indigo-600 bg-indigo-50 text-indigo-700"
-                        : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                        ? "border-amber-400 bg-amber-50 text-amber-700"
+                        : "border-stone-200 bg-white text-stone-600 hover:border-stone-300"
                     }`}
                   >
                     {s.name}
-                    <span className="ml-1.5 text-xs font-normal text-gray-400">
+                    <span className="ml-1.5 text-xs font-normal text-stone-400">
                       {s.season}
                     </span>
                   </button>
                   <button
                     onClick={() => handleDelete(s.id)}
                     title="Delete"
-                    className="rounded px-1 py-1 text-gray-300 hover:text-red-400 transition-colors text-xs"
+                    className="rounded px-1 py-1 text-stone-300 hover:text-red-400 transition-colors text-xs"
                   >
                     ✕
                   </button>
@@ -316,7 +312,7 @@ export default function BreakevenClient({ farmId }: Props) {
             })}
           </div>
           {loadedScenario && (
-            <p className="text-xs text-indigo-600">
+            <p className="text-xs text-amber-600">
               Viewing saved scenario — click again to return to live data.
             </p>
           )}
@@ -331,14 +327,14 @@ export default function BreakevenClient({ farmId }: Props) {
             <button
               key={f.fieldId}
               onClick={() => setSelectedFieldId(f.fieldId)}
-              className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition-colors ${
                 active
-                  ? "border-blue-600 bg-blue-50 text-blue-700"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                  ? "border-amber-400 bg-amber-50 text-amber-700"
+                  : "border-stone-200 bg-white text-stone-600 hover:border-stone-300"
               }`}
             >
               {f.name}
-              <span className="ml-1.5 text-xs font-normal text-gray-400">
+              <span className="ml-1.5 text-xs font-normal text-stone-400">
                 {CROP_CONFIG[f.crop].label} · {f.acres} ac
               </span>
             </button>
@@ -405,13 +401,18 @@ export default function BreakevenClient({ farmId }: Props) {
 
           <section className="flex flex-col gap-3">
             <div className="flex items-baseline justify-between">
-              <h2 className="text-base font-semibold text-gray-900">
-                Price × Yield sensitivity
-              </h2>
-              <span className="text-xs text-gray-400">Net margin / acre</span>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-stone-400">
+                  Sensitivity
+                </p>
+                <p className="text-base font-semibold text-stone-900 mt-0.5">
+                  Price × Yield
+                </p>
+              </div>
+              <span className="text-xs text-stone-400">Net margin / acre</span>
             </div>
 
-            <div className="flex flex-wrap gap-6 text-xs text-gray-500">
+            <div className="flex flex-wrap gap-6 text-xs text-stone-500">
               <label className="flex items-center gap-2">
                 Price range
                 <input
@@ -420,9 +421,9 @@ export default function BreakevenClient({ farmId }: Props) {
                   max={8}
                   value={priceExtent}
                   onChange={(e) => setPriceExtent(Number(e.target.value))}
-                  className="w-24 accent-blue-600"
+                  className="w-24 accent-amber-500"
                 />
-                <span className="tabular-nums text-gray-400">
+                <span className="tabular-nums text-stone-400">
                   ±{priceExtent} (${(priceExtent * priceStep).toFixed(2)})
                 </span>
               </label>
@@ -434,9 +435,9 @@ export default function BreakevenClient({ farmId }: Props) {
                   max={8}
                   value={yieldExtent}
                   onChange={(e) => setYieldExtent(Number(e.target.value))}
-                  className="w-24 accent-blue-600"
+                  className="w-24 accent-amber-500"
                 />
-                <span className="tabular-nums text-gray-400">
+                <span className="tabular-nums text-stone-400">
                   ±{yieldExtent} ({yieldExtent * yieldStep} bu)
                 </span>
               </label>
@@ -451,20 +452,20 @@ export default function BreakevenClient({ farmId }: Props) {
                 centerYield={Math.round(yieldBu)}
               />
             ) : (
-              <div className="rounded-xl border border-gray-100 bg-gray-50 p-8 text-center text-sm text-gray-400">
+              <div className="rounded-2xl border border-stone-100 bg-stone-50 p-8 text-center text-sm text-stone-400">
                 Enter your local cash price above to see the sensitivity grid.
               </div>
             )}
           </section>
 
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-stone-400">
             Breakeven = total cost ÷ yield. Compared against your{" "}
-            <strong>local cash price</strong>, not futures. Cost defaults from{" "}
+            <strong className="text-stone-600">local cash price</strong>, not futures. Cost defaults from{" "}
             {defaults ? "backend (GET /defaults)" : "local config"}.
           </p>
         </>
       ) : derived && entry ? (
-        <div className="rounded-xl border border-gray-100 bg-gray-50 p-6 text-center text-sm text-gray-400">
+        <div className="rounded-2xl border border-stone-100 bg-stone-50 p-6 text-center text-sm text-stone-400">
           Enter a yield above 0 to see breakeven results.
         </div>
       ) : null}
@@ -488,45 +489,41 @@ function WholeFarmCard({
     `$${Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
   return (
     <div
-      className={`rounded-xl border bg-white p-5 shadow-sm flex flex-col gap-4 ${
-        fromScenario ? "border-indigo-200" : "border-gray-200"
+      className={`rounded-2xl border bg-white p-5 shadow-sm ${
+        fromScenario ? "border-amber-200" : "border-stone-200"
       }`}
     >
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-gray-900">
-          Whole-Farm Summary
-        </h2>
-        <span className="text-xs text-gray-400">
-          {totalAcres.toLocaleString()} total acres · {cropCount} crop
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-stone-400">
+            Whole-Farm
+          </p>
+          <p className="text-base font-semibold text-stone-900 mt-0.5">Summary</p>
+        </div>
+        <span className="text-xs text-stone-400">
+          {totalAcres.toLocaleString()} ac · {cropCount} crop
           {cropCount !== 1 ? "s" : ""}
           {fromScenario && (
-            <span className="ml-1.5 text-indigo-500">· saved scenario</span>
+            <span className="ml-1.5 text-amber-500">· scenario</span>
           )}
         </span>
       </div>
-      <div className="grid grid-cols-3 gap-4">
-        <div>
-          <p className="text-xs text-gray-500">Total Revenue</p>
-          <p className="text-lg font-bold tabular-nums text-gray-900">
-            {fmt(totals.revenue)}
-          </p>
+      <div className="flex items-start gap-6">
+        <div className="flex flex-col gap-1">
+          <span className="text-2xl font-bold tabular-nums leading-none text-stone-900">{fmt(totals.revenue)}</span>
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Revenue</span>
         </div>
-        <div>
-          <p className="text-xs text-gray-500">Total Expense</p>
-          <p className="text-lg font-bold tabular-nums text-gray-900">
-            {fmt(totals.expense)}
-          </p>
+        <div className="w-px self-stretch bg-stone-100" />
+        <div className="flex flex-col gap-1">
+          <span className="text-2xl font-bold tabular-nums leading-none text-stone-900">{fmt(totals.expense)}</span>
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Expense</span>
         </div>
-        <div>
-          <p className="text-xs text-gray-500">Net Margin</p>
-          <p
-            className={`text-lg font-bold tabular-nums ${
-              positive ? "text-emerald-700" : "text-red-600"
-            }`}
-          >
-            {positive ? "" : "−"}
-            {fmt(totals.netMargin)}
-          </p>
+        <div className="w-px self-stretch bg-stone-100" />
+        <div className="flex flex-col gap-1">
+          <span className={`text-2xl font-bold tabular-nums leading-none ${positive ? "text-emerald-700" : "text-red-600"}`}>
+            {positive ? "" : "−"}{fmt(totals.netMargin)}
+          </span>
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">Net Margin</span>
         </div>
       </div>
     </div>
@@ -550,21 +547,24 @@ function DecisionPanel({
     `${Math.min((v / barMax) * 100, 100).toFixed(1)}%`;
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm flex flex-col gap-4">
+    <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-gray-900">Decision</h2>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-stone-400">Decision</p>
+          <p className="text-base font-semibold text-stone-900 mt-0.5">Breakeven check</p>
+        </div>
         {cashPrice > 0 ? (
           <span
-            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+            className={`rounded-full px-3 py-1 text-xs font-semibold tracking-wide ${
               clears
                 ? "bg-emerald-100 text-emerald-800"
-                : "bg-amber-100 text-amber-800"
+                : "bg-red-100 text-red-700"
             }`}
           >
             {clears ? "CLEARS BREAKEVEN" : "BELOW BREAKEVEN"}
           </span>
         ) : (
-          <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold bg-gray-100 text-gray-500">
+          <span className="rounded-full px-3 py-1 text-xs font-semibold tracking-wide bg-stone-100 text-stone-500">
             ENTER CASH PRICE
           </span>
         )}
@@ -575,20 +575,20 @@ function DecisionPanel({
           label="Local cash price"
           value={cashPrice}
           width={pct(cashPrice)}
-          color="bg-blue-500"
+          color="bg-amber-500"
         />
         <Bar
           label="Breakeven"
           value={be}
           width={pct(be)}
-          color="bg-gray-400"
+          color="bg-stone-400"
         />
       </div>
 
       <div className="flex flex-wrap gap-x-8 gap-y-1 text-sm">
         {cashPrice > 0 && (
-          <span className="text-gray-500">
-            Margin vs BE{" "}
+          <span className="text-stone-500">
+            vs breakeven{" "}
             <span
               className={`font-semibold ${
                 cashPrice - be >= 0 ? "text-emerald-700" : "text-red-600"
@@ -599,7 +599,7 @@ function DecisionPanel({
             </span>
           </span>
         )}
-        <span className="text-gray-500">
+        <span className="text-stone-500">
           Net margin{" "}
           <span
             className={`font-semibold ${
@@ -609,9 +609,9 @@ function DecisionPanel({
             {margin >= 0 ? "+" : "−"}${Math.abs(margin).toFixed(0)}/acre
           </span>
         </span>
-        <span className="text-gray-500">
+        <span className="text-stone-500">
           Revenue{" "}
-          <span className="font-semibold text-gray-800">
+          <span className="font-semibold text-stone-800">
             ${revenue.toFixed(0)}/acre
           </span>
         </span>
@@ -633,11 +633,11 @@ function Bar({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="w-28 shrink-0 text-xs text-gray-500">{label}</span>
-      <div className="h-2 w-full rounded-full bg-gray-100">
+      <span className="w-28 shrink-0 text-xs text-stone-500">{label}</span>
+      <div className="h-2 w-full rounded-full bg-stone-100">
         <div className={`h-2 rounded-full ${color}`} style={{ width }} />
       </div>
-      <span className="w-16 text-right text-sm font-semibold tabular-nums text-gray-900">
+      <span className="w-16 text-right text-sm font-bold tabular-nums text-stone-900">
         ${value.toFixed(2)}
       </span>
     </div>
@@ -657,21 +657,17 @@ function Stat({
 }) {
   return (
     <div
-      className={`rounded-xl border bg-white p-3 shadow-sm ${
-        strong ? "border-gray-300" : "border-gray-200"
+      className={`rounded-2xl border bg-white p-4 shadow-sm ${
+        strong ? "border-stone-300" : "border-stone-200"
       }`}
     >
-      <p className="text-xs text-gray-500">{label}</p>
-      <p
-        className={`tabular-nums ${
-          strong
-            ? "text-lg font-bold text-gray-900"
-            : "text-base font-semibold text-gray-800"
-        }`}
-      >
-        {value}
+      <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 mb-1">{label}</p>
+      <p className="tabular-nums">
+        <span className={`${strong ? "text-2xl font-bold text-stone-900" : "text-xl font-bold text-stone-800"}`}>
+          {value}
+        </span>
         {hint && (
-          <span className="ml-1 text-xs font-normal text-gray-400">
+          <span className="ml-1 text-xs font-normal text-stone-400">
             {hint}
           </span>
         )}
