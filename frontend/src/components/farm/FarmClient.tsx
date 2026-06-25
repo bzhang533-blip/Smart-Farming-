@@ -37,8 +37,9 @@ export default function FarmClient() {
   const [error, setError] = useState<string | null>(null);
   const [machinery, setMachinery] = useState<Machinery[]>([]);
 
-  const originalFarmRef = useRef<FarmProfile | null>(null);
-  const originalMachineryRef = useRef<Machinery[]>([]);
+  const hasInitialized = useRef(false);
+  const [originalFarm, setOriginalFarm] = useState<FarmProfile | null>(null);
+  const [originalMachinery, setOriginalMachinery] = useState<Machinery[]>([]);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
@@ -77,13 +78,10 @@ export default function FarmClient() {
         if (!cancelled) {
           setMachinery(macRes.machinery);
           // Snapshot current state once — used for dirty detection and Cancel.
-          if (originalFarmRef.current === null) {
-            originalFarmRef.current = JSON.parse(
-              JSON.stringify(useFarmStore.getState().farm),
-            );
-            originalMachineryRef.current = JSON.parse(
-              JSON.stringify(macRes.machinery),
-            );
+          if (!hasInitialized.current) {
+            hasInitialized.current = true;
+            setOriginalFarm(JSON.parse(JSON.stringify(useFarmStore.getState().farm)));
+            setOriginalMachinery(JSON.parse(JSON.stringify(macRes.machinery)));
           }
           setLoading(false);
         }
@@ -131,7 +129,7 @@ export default function FarmClient() {
   function toggleSelect(fieldId: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      next.has(fieldId) ? next.delete(fieldId) : next.add(fieldId);
+      if (next.has(fieldId)) { next.delete(fieldId); } else { next.add(fieldId); }
       return next;
     });
   }
@@ -164,7 +162,7 @@ export default function FarmClient() {
   function toggleMachinerySelect(id: string) {
     setMachinerySelectedIds((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
       return next;
     });
   }
@@ -205,14 +203,13 @@ export default function FarmClient() {
   }
 
   const isDirty =
-    originalFarmRef.current !== null &&
+    originalFarm !== null &&
     (JSON.stringify({ name: farm?.name, fields: farm?.fields }) !==
       JSON.stringify({
-        name: originalFarmRef.current.name,
-        fields: originalFarmRef.current.fields,
+        name: originalFarm.name,
+        fields: originalFarm.fields,
       }) ||
-      JSON.stringify(machinery) !==
-        JSON.stringify(originalMachineryRef.current));
+      JSON.stringify(machinery) !== JSON.stringify(originalMachinery));
 
   async function handleSave() {
     if (!farm) return;
@@ -220,8 +217,8 @@ export default function FarmClient() {
     try {
       await updateFarmProfile({ name: farm.name, fields: farm.fields });
       // Commit snapshot so dirty resets.
-      originalFarmRef.current = JSON.parse(JSON.stringify(farm));
-      originalMachineryRef.current = JSON.parse(JSON.stringify(machinery));
+      setOriginalFarm(JSON.parse(JSON.stringify(farm)));
+      setOriginalMachinery(JSON.parse(JSON.stringify(machinery)));
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 2000);
     } catch {
@@ -230,9 +227,9 @@ export default function FarmClient() {
   }
 
   function handleDiscard() {
-    if (!originalFarmRef.current) return;
-    resetFarm(originalFarmRef.current);
-    setMachinery(JSON.parse(JSON.stringify(originalMachineryRef.current)));
+    if (!originalFarm) return;
+    resetFarm(originalFarm);
+    setMachinery(JSON.parse(JSON.stringify(originalMachinery)));
     setSaveStatus("idle");
   }
 

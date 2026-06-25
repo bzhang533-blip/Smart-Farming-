@@ -2,7 +2,7 @@ import { SignIn } from "@clerk/nextjs";
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-gray-50">
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-stone-50">
       <div className="mb-8 text-center max-w-sm">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-stone-400 mb-3">
           Smart Farm
