@@ -421,10 +421,10 @@ export default function FarmClient() {
             onClick={() => setShowDeleteConfirm(false)}
           />
           <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4">
-            <h3 className="text-base font-semibold text-gray-900">
+            <h3 className="text-base font-semibold text-stone-900">
               Delete {selectedIds.size} field{selectedIds.size !== 1 ? "s" : ""}?
             </h3>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-stone-500">
               This will remove the selected field
               {selectedIds.size !== 1 ? "s" : ""} and all associated cost data.
               This cannot be undone.
@@ -432,7 +432,7 @@ export default function FarmClient() {
             <div className="mt-5 flex justify-end gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-semibold text-stone-600 hover:bg-stone-50 transition-colors"
               >
                 Cancel
               </button>
@@ -525,18 +525,18 @@ export default function FarmClient() {
             onClick={() => setShowMachineryDeleteConfirm(false)}
           />
           <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4">
-            <h3 className="text-base font-semibold text-gray-900">
+            <h3 className="text-base font-semibold text-stone-900">
               Delete {machinerySelectedIds.size} item
               {machinerySelectedIds.size !== 1 ? "s" : ""}?
             </h3>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-stone-500">
               This will remove the selected machinery item
               {machinerySelectedIds.size !== 1 ? "s" : ""} permanently.
             </p>
             <div className="mt-5 flex justify-end gap-3">
               <button
                 onClick={() => setShowMachineryDeleteConfirm(false)}
-                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-semibold text-stone-600 hover:bg-stone-50 transition-colors"
               >
                 Cancel
               </button>
