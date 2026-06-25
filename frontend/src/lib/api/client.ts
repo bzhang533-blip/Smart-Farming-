@@ -1,4 +1,8 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE?.trim() ?? "";
+
+export function hasConfiguredApiBase(): boolean {
+  return API_BASE.length > 0;
+}
 
 // Clerk injects itself as window.Clerk after ClerkProvider loads.
 // Returns null in SSR, during MSW-only dev, or before session loads.

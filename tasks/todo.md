@@ -29,6 +29,54 @@
 
 ## 已完成
 
+### [2026-06-24] Align frontend API base with v1 backend surface
+
+**目标**：连接真实 Dart backend 时，只把 v1 已支持的 `/defaults` 与 `/scenarios` 交给后端；farm profile/machinery 仍用本地 seed，避免请求不存在的 backend endpoint。
+
+**计划**：
+- [x] 调整 `lib/api/farm.ts` 保持本地 seed 数据
+- [x] 运行 lint / build 验证
+- [x] 提交并推送给 Vercel 重部署
+
+**审查**：v1 backend 只支持 `/defaults` 与 `/scenarios`，不支持 `/api/farm/profile` 或 `/api/farm/machinery`。已让 farm profile/machinery API wrapper 始终使用本地 seed/no-op update；真实 backend URL 仅影响 defaults 与 scenario CRUD。验证：`npm run lint`、`npm run build` 通过。
+
+### [2026-06-24] Prepare Dart backend deployment
+
+**目标**：为 v1 Dart backend 增加最小部署配置，使其可作为独立 web service 部署，再由 Vercel frontend 通过 `NEXT_PUBLIC_API_BASE` 连接。
+
+**计划**：
+- [x] 检查 backend 运行方式与端口约定
+- [x] 添加 Docker 部署配置，不改变 Dart 业务逻辑
+- [x] 本地验证 backend 启动与核心 endpoint
+- [x] 说明 Vercel 环境变量连接方式
+- [x] 更新审查小结并移入已完成
+
+**审查**：新增 `backend/Dockerfile`，使用 `dart:stable` 运行 `dart backend/backend.dart`，保持 backend 读取平台 `PORT` 的现有约定；未改 Dart 业务逻辑，未新增任何保本/盈亏计算端点。本地验证：`dart run backend/backend.dart --port=8082` 可启动，`GET /defaults?crop=corn` 与 `GET /scenarios` 返回 200，`dart analyze backend` 通过。Docker CLI 本机不可用，未能本地 build image。
+
+### [2026-06-24] Fix deployed frontend standalone defaults
+
+**目标**：让 Vercel 部署版在没有 Dart 后端、`NEXT_PUBLIC_API_BASE` 为空时也能稳定加载 `/farm`，不再卡在 skeleton。
+
+**计划**：
+- [x] 定位 `/farm` 初始化 fetch defaults 的失败路径
+- [x] 在 frontend API 层增加无后端时的本地 defaults 兜底
+- [x] 运行 lint / build 验证
+- [x] 更新审查小结并移入已完成
+
+**审查**：生产环境不启动 MSW，Vercel 上没有 `/defaults`、`/api/farm/profile`、`/api/farm/machinery`、`/scenarios` 路由，导致 `/farm` 一直停在 skeleton。已改为当 `NEXT_PUBLIC_API_BASE` 为空时，`lib/api/` 直接使用本地 mock/default 数据；未来配置真实 Dart 后端 URL 后仍走 API。验证：`npm run lint`、`npm run build` 均通过。
+
+### [2026-06-18] 后端只接受 canonical `soybeans`
+
+**目标**：移除后端 `soybean` 兼容别名，只接受 v1 alignment canonical crop key：`soybeans`。
+
+**计划**：
+- [x] 移除 backend crop normalization 中的 `soybean` → `soybeans` alias
+- [x] 更新 backend validation/error 文案
+- [x] 更新 `tasks/frontRequest.md`，说明 alias 已移除
+- [x] 运行 Dart format/analyze 并手动验证 `soybeans` 通过、`soybean` 拒绝
+
+**审查**：已移除后端 `soybean` 兼容路径，`normalizeCrop` 现在只接受 `corn` / `soybeans` / `other`。`GET /defaults?crop=soybeans` 返回 200，`GET /defaults?crop=soybean` 返回 400，`POST /scenarios` 使用 `crop:"soybean"` 返回 400。`dart format backend` 与 `dart analyze backend` 均通过。未修改任何 `frontend/` 文件。
+
 ### [2026-06-13] 实现 v1 Dart 后端 defaults + scenarios
 
 **目标**：实现 v1 后端服务：只提供 `GET /defaults` 与 Scenario CRUD，支持 `soybean` 兼容输入但以 `soybeans` 为 canonical，绝不实现后端保本/盈亏计算。
