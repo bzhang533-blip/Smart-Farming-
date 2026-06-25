@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import NavBar from "@/components/layout/NavBar";
 import MockProvider from "@/lib/mocks/MockProvider";
 import "./globals.css";
@@ -25,17 +26,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      suppressHydrationWarning
-    >
-      <body className="min-h-full flex flex-col bg-gray-50">
-        <MockProvider>
-          <NavBar />
-          <main className="flex-1">{children}</main>
-        </MockProvider>
-      </body>
-    </html>
+    <ClerkProvider afterSignOutUrl="/login">
+      <html
+        lang="en"
+        className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+        suppressHydrationWarning
+      >
+        <body className="min-h-full flex flex-col bg-gray-50">
+          <MockProvider>
+            <NavBar />
+            <main className="flex-1">{children}</main>
+          </MockProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
