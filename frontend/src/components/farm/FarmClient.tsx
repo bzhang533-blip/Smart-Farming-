@@ -415,7 +415,11 @@ export default function FarmClient() {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
             className="absolute inset-0 bg-black/40"
+            role="button"
+            tabIndex={-1}
+            aria-label="Close dialog"
             onClick={() => setShowDeleteConfirm(false)}
+            onKeyDown={(e) => e.key === "Escape" && setShowDeleteConfirm(false)}
           />
           <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4">
             <h3 className="text-base font-semibold text-stone-900">
@@ -519,7 +523,11 @@ export default function FarmClient() {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
             className="absolute inset-0 bg-black/40"
+            role="button"
+            tabIndex={-1}
+            aria-label="Close dialog"
             onClick={() => setShowMachineryDeleteConfirm(false)}
+            onKeyDown={(e) => e.key === "Escape" && setShowMachineryDeleteConfirm(false)}
           />
           <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl mx-4">
             <h3 className="text-base font-semibold text-stone-900">
