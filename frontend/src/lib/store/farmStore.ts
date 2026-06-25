@@ -53,6 +53,15 @@ interface FarmActions {
   updateField: (fieldId: string, patch: Partial<Field>) => void;
   /** Called by BreakevenClient's FieldInputPanel onChange. */
   updateFieldInputs: (fieldId: string, inputs: FieldInputs) => void;
+  /** Add a new field, seeding its FieldInputs from current defaults. */
+  addField: (field: Field) => void;
+  /** Remove fields by id, cleaning up FieldInputs. */
+  deleteFields: (fieldIds: string[]) => void;
+  /**
+   * Revert farm (name + fields) to a snapshot, re-seeding fieldInputs from
+   * defaults while preserving any cashPricePerBu the user set on /breakeven.
+   */
+  resetFarm: (snapshot: FarmProfile) => void;
 }
 
 export const useFarmStore = create<FarmState & FarmActions>((set, get) => ({
@@ -126,5 +135,56 @@ export const useFarmStore = create<FarmState & FarmActions>((set, get) => ({
     set((s) => ({
       fieldInputs: new Map(s.fieldInputs).set(fieldId, inputs),
     }));
+  },
+
+  addField(field) {
+    const { farm, defaults, fieldInputs, defaultFieldInputs } = get();
+    if (!farm) return;
+    const cropKey = field.crop as CropKey;
+    const cropDefs = defaults?.crops[cropKey];
+    const fi: FieldInputs = {
+      cashPricePerBu: 0,
+      yieldBuPerAcre: field.aph,
+      landCostPerAcre: cropDefs?.landCostPerAcre ?? 0,
+      machineryCostPerAcre: cropDefs?.machineryCostPerAcre ?? 0,
+      directCosts: cropDefs?.directCosts.map((c) => ({ ...c })) ?? [],
+    };
+    set({
+      farm: { ...farm, fields: [...farm.fields, field] },
+      fieldInputs: new Map(fieldInputs).set(field.fieldId, fi),
+      defaultFieldInputs: new Map(defaultFieldInputs).set(field.fieldId, {
+        ...fi,
+        directCosts: fi.directCosts.map((c) => ({ ...c })),
+      }),
+    });
+  },
+
+  resetFarm(snapshot) {
+    const { defaults, fieldInputs } = get();
+    if (!defaults) return;
+    const { inputs, defaultsMap } = buildInputMaps(snapshot, defaults);
+    // Preserve cashPricePerBu set on /breakeven so those edits survive a Cancel.
+    for (const [fieldId, fi] of inputs) {
+      const existing = fieldInputs.get(fieldId);
+      if (existing) fi.cashPricePerBu = existing.cashPricePerBu;
+    }
+    set({ farm: snapshot, fieldInputs: inputs, defaultFieldInputs: defaultsMap });
+  },
+
+  deleteFields(fieldIds) {
+    const { farm, fieldInputs, defaultFieldInputs } = get();
+    if (!farm) return;
+    const toDelete = new Set(fieldIds);
+    const newInputs = new Map(fieldInputs);
+    const newDefaults = new Map(defaultFieldInputs);
+    for (const id of toDelete) {
+      newInputs.delete(id);
+      newDefaults.delete(id);
+    }
+    set({
+      farm: { ...farm, fields: farm.fields.filter((f) => !toDelete.has(f.fieldId)) },
+      fieldInputs: newInputs,
+      defaultFieldInputs: newDefaults,
+    });
   },
 }));

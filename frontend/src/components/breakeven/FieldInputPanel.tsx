@@ -54,10 +54,13 @@ export default function FieldInputPanel({
   const directTotal = inputs.directCosts.reduce((sum, c) => sum + c.value, 0);
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm flex flex-col gap-4">
-      <h2 className="text-base font-semibold text-gray-900">
-        {cropLabel} — Enter Your Numbers
-      </h2>
+    <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm flex flex-col gap-4">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-stone-400">
+          {cropLabel}
+        </p>
+        <p className="text-base font-semibold text-stone-900 mt-0.5">Enter Your Numbers</p>
+      </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <NumInput
@@ -96,7 +99,7 @@ export default function FieldInputPanel({
         <button
           type="button"
           onClick={() => setCostsOpen((o) => !o)}
-          className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+          className="flex items-center gap-2 text-sm font-semibold text-stone-500 hover:text-stone-800 transition-colors"
         >
           <span
             className={`inline-block transition-transform text-xs ${
@@ -106,50 +109,50 @@ export default function FieldInputPanel({
             ▶
           </span>
           Edit direct costs
-          <span className="ml-auto text-xs font-normal text-gray-400 tabular-nums">
-            Total: ${directTotal.toFixed(0)}/ac
+          <span className="ml-auto text-xs font-normal text-stone-400 tabular-nums">
+            ${directTotal.toFixed(0)}/ac
           </span>
         </button>
 
         {costsOpen && (
-          <div className="flex flex-col gap-1.5 pl-4 border-l-2 border-gray-100">
+          <div className="flex flex-col gap-1.5 pl-4 border-l-2 border-stone-100">
             {inputs.directCosts.map((c, i) => (
               <div key={c.key} className="flex items-center gap-3">
-                <span className="flex-1 text-xs text-gray-600 min-w-0 truncate">
+                <span className="flex-1 text-xs text-stone-600 min-w-0 truncate">
                   {c.label}
                 </span>
                 <div className="flex items-center gap-1 shrink-0">
-                  <span className="text-xs text-gray-400">$</span>
+                  <span className="text-xs text-stone-400">$</span>
                   <input
                     type="number"
                     min="0"
                     step="1"
                     value={c.value}
                     onChange={(e) => setCostLine(i, e.target.value)}
-                    className="w-20 rounded border border-gray-200 px-2 py-1 text-right text-xs tabular-nums focus:border-blue-400 focus:outline-none"
+                    className="w-20 rounded border border-stone-200 px-2 py-1 text-right text-xs tabular-nums focus:border-amber-400 focus:outline-none"
                   />
-                  <span className="text-xs text-gray-400 w-6">/ac</span>
+                  <span className="text-xs text-stone-400 w-6">/ac</span>
                   {c.source === "user" && (
                     <span
-                      className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0"
+                      className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"
                       title="Edited"
                     />
                   )}
                 </div>
               </div>
             ))}
-            <div className="flex items-center justify-between pt-2 mt-1 border-t border-gray-100">
-              <span className="text-xs font-medium text-gray-600">
+            <div className="flex items-center justify-between pt-2 mt-1 border-t border-stone-100">
+              <span className="text-xs font-semibold text-stone-600">
                 Direct subtotal
               </span>
-              <span className="text-xs font-semibold tabular-nums text-gray-900">
+              <span className="text-xs font-bold tabular-nums text-stone-900">
                 ${directTotal.toFixed(0)}/ac
               </span>
             </div>
             <button
               type="button"
               onClick={resetToDefaults}
-              className="self-start text-xs text-gray-400 hover:text-gray-600 transition-colors mt-1"
+              className="self-start text-xs text-stone-400 hover:text-stone-600 transition-colors mt-1"
             >
               ↩ Reset to defaults
             </button>
@@ -179,7 +182,7 @@ function NumInput({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-xs font-medium text-gray-600">{label}</label>
+      <label className="text-[10px] font-semibold uppercase tracking-widest text-stone-400">{label}</label>
       <input
         type="number"
         min="0"
@@ -187,13 +190,13 @@ function NumInput({
         value={value === 0 && placeholder !== undefined ? "" : value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className={`rounded-lg border px-3 py-2 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+        className={`rounded-lg border px-3 py-2 text-sm font-semibold tabular-nums text-stone-900 focus:outline-none focus:ring-2 focus:ring-amber-400 ${
           highlight
             ? "border-amber-400 bg-amber-50 placeholder-amber-400"
-            : "border-gray-200 bg-white"
+            : "border-stone-200 bg-white"
         }`}
       />
-      <span className="text-xs text-gray-400">{hint}</span>
+      <span className="text-xs text-stone-400">{hint}</span>
     </div>
   );
 }
