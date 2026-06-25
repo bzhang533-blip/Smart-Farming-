@@ -6,6 +6,69 @@
 
 ---
 
+## 0. Auth — Dart 同事必读（2026-06-25 新增）
+
+> 完整设计见 `docs/superpowers/specs/2026-06-25-auth-design.md`。
+
+### 选型
+
+使用 **Clerk** 作为第三方 Auth 服务。前端通过 Clerk 完成 Google OAuth，拿到 JWT 后注入每个请求的 `Authorization` header。**后端不参与 OAuth 流程**，只需验 JWT。
+
+### JWT 验签（每个受保护接口都要做）
+
+```
+GET https://api.clerk.com/v1/jwks
+```
+
+- 算法：RS256
+- 从响应的 JWKS 拿公钥，验证请求 header 里的 `Authorization: Bearer <token>`
+- 验签成功后，从 JWT payload 的 **`sub`** claim 取 `userId`（格式：`user_xxxxxxxx`）
+- 把 `userId` 注入 request context，后续接口用它查 / 写数据
+
+推荐 Dart 包：[`dart_jsonwebtoken`](https://pub.dev/packages/dart_jsonwebtoken)（支持 RS256 + JWKS）或 [`jose`](https://pub.dev/packages/jose)。
+
+### Farm API 变更（Breaking Change）
+
+旧端点已废弃，改为用户维度：
+
+| 旧（废弃） | 新 | 说明 |
+|---|---|---|
+| `GET /api/farm/profile/:farmId` | `GET /api/me/farm` | 从 JWT 取 userId，不再接受 farmId 参数 |
+| `PUT /api/farm/profile/:farmId` | `PUT /api/me/farm` | 同上 |
+
+**新用户首次调用 `GET /api/me/farm`：**
+
+后端检测到该 `userId` 无对应农场记录时，自动创建并返回空白 FarmProfile：
+
+```json
+{
+  "name": "<用户 Google 显示名>'s Farm",
+  "state": "IA",
+  "fields": [],
+  "costStructure": []
+}
+```
+
+HTTP 状态码：新建返回 `201 Created`，已有返回 `200 OK`。
+
+### Scenario 端点（URL 不变，加 JWT 验签）
+
+`/scenarios/*` 端点 URL 不变，但每个请求都要验 JWT，并用 `userId` 做数据归属隔离（一个用户只能访问自己的 scenario）。
+
+### GET /defaults（建议加 JWT 验签）
+
+可选但推荐：加上 JWT 验签，保持所有接口安全策略一致。
+
+### 错误响应
+
+| 情况 | HTTP 状态码 | Body |
+|---|---|---|
+| 无 Authorization header | 401 | `{ "error": "unauthorized" }` |
+| JWT 验签失败 / 过期 | 401 | `{ "error": "invalid_token" }` |
+| userId 无权访问该资源 | 403 | `{ "error": "forbidden" }` |
+
+---
+
 ## 0. v1 范围(先读 CLAUDE.md §0)
 
 v1 = 一个最简单的**单作物盈亏计算器**。后端在 v1 里只做两件事:
