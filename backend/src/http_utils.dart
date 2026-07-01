@@ -45,7 +45,7 @@ void addCorsHeaders(HttpResponse response) {
   response.headers
     ..set('Access-Control-Allow-Origin', '*')
     ..set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-    ..set('Access-Control-Allow-Headers', 'Content-Type');
+    ..set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
 void _setCommonHeaders(HttpResponse response) {
