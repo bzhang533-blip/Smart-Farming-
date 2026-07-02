@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { getDefaults } from "@/lib/api/defaults";
 import {
   createScenario,
@@ -61,6 +62,8 @@ function buildScenario(
 }
 
 export default function BreakevenClient() {
+  const { isLoaded: clerkLoaded } = useAuth();
+
   // --- Store-based state ---
   const farm = useFarmStore((s) => s.farm);
   const defaults = useFarmStore((s) => s.defaults);
@@ -85,8 +88,10 @@ export default function BreakevenClient() {
 
   // Fallback: if store is empty (user navigated directly to /breakeven),
   // fetch from the API and seed the store.
+  // Must wait for Clerk to be ready — otherwise the request has no auth token
+  // and the backend falls back to "dev-user", loading the wrong farm.
   useEffect(() => {
-    if (useFarmStore.getState().farm !== null) return;
+    if (!clerkLoaded || useFarmStore.getState().farm !== null) return;
     let cancelled = false;
     Promise.all([getFarmProfile(), getDefaults()])
       .then(([f, defs]) => {
@@ -104,7 +109,7 @@ export default function BreakevenClient() {
     return () => {
       cancelled = true;
     };
-  }, [initFromFetch]);
+  }, [clerkLoaded, initFromFetch]);
 
   const [priceExtent, setPriceExtent] = useState(4);
   const [yieldExtent, setYieldExtent] = useState(4);

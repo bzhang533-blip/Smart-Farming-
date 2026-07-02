@@ -1,6 +1,6 @@
 import { mockFarmProfile, mockMachinery } from "@/lib/mocks/data/farm";
 import { apiFetch, getClerkToken, hasConfiguredApiBase } from "./client";
-import type { FarmProfile, MachineryListResponse } from "@/types";
+import type { FarmProfile, MachineryListResponse, Machinery } from "@/types";
 
 export async function getFarmProfile(): Promise<FarmProfile> {
   if (!hasConfiguredApiBase() || !(await getClerkToken())) {
@@ -10,7 +10,7 @@ export async function getFarmProfile(): Promise<FarmProfile> {
 }
 
 export async function updateFarmProfile(
-  data: Partial<Omit<FarmProfile, "farmId">>,
+  data: Partial<Omit<FarmProfile, "farmId">> & { machinery?: Machinery[] },
 ): Promise<{ ok: boolean }> {
   if (!hasConfiguredApiBase() || !(await getClerkToken())) {
     void data;
