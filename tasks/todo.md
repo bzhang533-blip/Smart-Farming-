@@ -29,6 +29,32 @@
 
 ## 已完成
 
+### [2026-07-01] Make public app routes viewable without sign-in
+
+**目标**：让访客可以直接打开 Smart Farm 首页、Farm、Breakeven 页面；登录用户仍可使用 Clerk-backed persistence，未登录访客走本地 demo 数据，不被强制跳到 sign-in。
+
+**计划**：
+- [x] 放开前端公开页面 middleware 保护
+- [x] 未登录时 farm/scenario API wrapper 回退到本地 demo 数据
+- [x] 运行 frontend lint/build 验证
+- [x] 更新审查小结并移入已完成
+
+**审查**：`/`、`/farm`、`/breakeven` 已加入 Clerk public route matcher，访客不再被 `auth.protect()` 强制跳转 sign-in。未登录或未配置 backend URL 时，farm/profile/machinery 与 scenario API wrapper 使用本地 demo/session 数据；登录用户仍可携带 Clerk token 调真实 backend。验证：`npm run lint` 通过；安装缺失 Clerk dependency 后 `npm run build` 通过。Next 16 提示 middleware 文件约定已 deprecated，后续可迁移到 proxy。
+
+### [2026-07-01] Backend Clerk auth + user-scoped farm/scenarios
+
+**目标**：只修改 Dart backend，接入 Clerk JWT 验签，补齐前端新增的 user-scoped farm endpoints，并让 scenario 数据按 Clerk userId 隔离；不新增任何后端盈亏/保本计算。
+
+**计划**：
+- [x] 新增 backend Dart package 配置与 JWT/JWKS 依赖
+- [x] 实现 Clerk JWT 验签与 CORS Authorization header
+- [x] 新增 `GET/PUT /api/me/farm` 与 `GET /api/me/farm/machinery`
+- [x] 改造 scenario store 为 user-scoped
+- [x] 本地运行 Dart format/analyze 与 HTTP 验证
+- [x] 更新审查小结并移入已完成
+
+**审查**：新增 `backend/pubspec.yaml` / `pubspec.lock`，使用 `dart_jsonwebtoken` + `http` 拉取 Clerk JWKS 并验证 RS256 JWT；受保护接口缺 token 返回 `401 {"error":"unauthorized"}`，无效 token 返回 `401 {"error":"invalid_token"}`。新增 file-backed `FarmStore` 支持 `GET/PUT /api/me/farm` 与 `GET /api/me/farm/machinery`；`ScenarioStore` 现在按 Clerk `sub` 写入/过滤/读取/更新/删除。CORS 已允许 `Authorization`。Dockerfile 改为在 `backend/` package 内 `dart pub get` 并 `dart run backend.dart`。验证：`dart format .`、`dart analyze` 通过；本地 dev auth smoke test `/defaults`、`/api/me/farm`、`/api/me/farm/machinery`、`/scenarios` 均 200；无 dev auth 时 `/api/me/farm` 与 `/scenarios` 均 401，`/defaults` 仍 200。未修改 frontend，未新增任何后端 breakeven/margin 计算。
+
 ### [2026-06-24] Align frontend API base with v1 backend surface
 
 **目标**：连接真实 Dart backend 时，只把 v1 已支持的 `/defaults` 与 `/scenarios` 交给后端；farm profile/machinery 仍用本地 seed，避免请求不存在的 backend endpoint。

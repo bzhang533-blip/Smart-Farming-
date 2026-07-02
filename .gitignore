@@ -17,6 +17,10 @@ frontend/.env*
 frontend/*.tsbuildinfo
 frontend/next-env.d.ts
 
+# Dart backend local artifacts
+backend/.dart_tool/
+backend/data/farms.json
+
 # Misc
 *.pem
 npm-debug.log*

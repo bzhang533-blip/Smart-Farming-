@@ -1,10 +1,12 @@
 FROM dart:stable
 
-WORKDIR /app
+WORKDIR /app/backend
 
-COPY . /app/backend
+COPY . .
+
+RUN dart pub get
 
 ENV PORT=8080
 EXPOSE 8080
 
-CMD ["dart", "backend/backend.dart"]
+CMD ["dart", "run", "backend.dart"]

@@ -1,0 +1,10 @@
+name: smart_farm_backend
+description: Smart Farm v1 Dart API server.
+publish_to: none
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  dart_jsonwebtoken: ^3.2.0
+  http: ^1.5.0

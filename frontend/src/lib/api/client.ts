@@ -6,7 +6,7 @@ export function hasConfiguredApiBase(): boolean {
 
 // Clerk injects itself as window.Clerk after ClerkProvider loads.
 // Returns null in SSR, during MSW-only dev, or before session loads.
-async function getClerkToken(): Promise<string | null> {
+export async function getClerkToken(): Promise<string | null> {
   if (typeof window === "undefined") return null;
   const w = window as Window & {
     Clerk?: { session?: { getToken(): Promise<string | null> } };
