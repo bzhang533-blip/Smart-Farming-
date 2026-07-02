@@ -1,12 +1,12 @@
 import { apiFetch } from "./client";
-import type { FarmProfile, MachineryListResponse } from "@/types";
+import type { FarmProfile, MachineryListResponse, Machinery } from "@/types";
 
 export function getFarmProfile(): Promise<FarmProfile> {
   return apiFetch("/api/me/farm");
 }
 
 export function updateFarmProfile(
-  data: Partial<Omit<FarmProfile, "farmId">>,
+  data: Partial<Omit<FarmProfile, "farmId">> & { machinery?: Machinery[] },
 ): Promise<{ ok: boolean }> {
   return apiFetch("/api/me/farm", {
     method: "PUT",

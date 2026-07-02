@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import type { Machinery, FarmProfile } from "@/types";
 import type { Crop } from "@/types/common";
 import { getFarmProfile, getMachinery, updateFarmProfile } from "@/lib/api/farm";
@@ -30,11 +31,14 @@ function Stat({ value, label }: { value: string | number; label: string }) {
 }
 
 export default function FarmClient() {
+  const { isLoaded: clerkLoaded } = useAuth();
+
   // Start without skeleton if store is already loaded (e.g. user visited /breakeven first).
   const [loading, setLoading] = useState(
     () => useFarmStore.getState().farm === null,
   );
   const [error, setError] = useState<string | null>(null);
+  const [machineryError, setMachineryError] = useState<string | null>(null);
   const [machinery, setMachinery] = useState<Machinery[]>([]);
 
   const hasInitialized = useRef(false);
@@ -62,6 +66,11 @@ export default function FarmClient() {
   const resetFarm = useFarmStore((s) => s.resetFarm);
 
   useEffect(() => {
+    // Don't fetch until Clerk has established the session — otherwise the request
+    // goes without an auth token and the backend falls back to "dev-user",
+    // loading a different user's (empty) farm than the one that was saved.
+    if (!clerkLoaded) return;
+
     let cancelled = false;
 
     async function load() {
@@ -74,17 +83,6 @@ export default function FarmClient() {
           ]);
           initFromFetch(f, defs);
         }
-        const macRes = await getMachinery();
-        if (!cancelled) {
-          setMachinery(macRes.machinery);
-          // Snapshot current state once — used for dirty detection and Cancel.
-          if (!hasInitialized.current) {
-            hasInitialized.current = true;
-            setOriginalFarm(JSON.parse(JSON.stringify(useFarmStore.getState().farm)));
-            setOriginalMachinery(JSON.parse(JSON.stringify(macRes.machinery)));
-          }
-          setLoading(false);
-        }
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -92,6 +90,32 @@ export default function FarmClient() {
           );
           setLoading(false);
         }
+        return;
+      }
+
+      // Machinery failure is non-fatal — show the farm profile anyway.
+      try {
+        const macRes = await getMachinery();
+        if (!cancelled) {
+          setMachinery(macRes.machinery);
+          setMachineryError(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setMachineryError(
+            err instanceof Error ? err.message : "Failed to load machinery",
+          );
+        }
+      }
+
+      if (!cancelled) {
+        // Snapshot current state once — used for dirty detection and Cancel.
+        if (!hasInitialized.current) {
+          hasInitialized.current = true;
+          setOriginalFarm(JSON.parse(JSON.stringify(useFarmStore.getState().farm)));
+          setOriginalMachinery(JSON.parse(JSON.stringify([])));
+        }
+        setLoading(false);
       }
     }
 
@@ -99,7 +123,7 @@ export default function FarmClient() {
     return () => {
       cancelled = true;
     };
-  }, [initFromFetch]);
+  }, [clerkLoaded, initFromFetch]);
 
   if (error) {
     return (
@@ -215,7 +239,7 @@ export default function FarmClient() {
     if (!farm) return;
     setSaveStatus("saving");
     try {
-      await updateFarmProfile({ name: farm.name, fields: farm.fields });
+      await updateFarmProfile({ name: farm.name, fields: farm.fields, machinery });
       // Commit snapshot so dirty resets.
       setOriginalFarm(JSON.parse(JSON.stringify(farm)));
       setOriginalMachinery(JSON.parse(JSON.stringify(machinery)));
@@ -495,6 +519,11 @@ export default function FarmClient() {
             )}
           </div>
         </div>
+        {machineryError && (
+          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 mb-3">
+            {machineryError}
+          </div>
+        )}
         <div className="flex flex-col gap-4">
           {machinery.map((m) => (
             <MachineryRow
