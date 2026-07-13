@@ -22,7 +22,7 @@ Login methods: **Google only** (v1). Email/password deferred to v2.
 ## 2. Architecture
 
 ```
-User          Frontend (Next.js)        Clerk           Dart Backend
+User          Frontend (Next.js)        Clerk           Python Backend
  │                   │                    │                   │
  │─ visit /farm ────▶│                    │                   │
  │                   │─ clerkMiddleware() ▶│                   │
@@ -38,7 +38,7 @@ User          Frontend (Next.js)        Clerk           Dart Backend
 **Responsibilities:**
 - **Clerk**: Google OAuth flow + JWT issuance. No business data.
 - **Frontend**: Route protection via middleware; JWT injected into all API calls.
-- **Dart backend**: JWT verification via Clerk JWKS; `userId` from `sub` claim keys all data.
+- **Python backend**: JWT verification via Clerk JWKS; `userId` from `sub` claim keys all data.
 
 ---
 
@@ -69,9 +69,9 @@ User          Frontend (Next.js)        Clerk           Dart Backend
 
 ---
 
-## 4. Backend Changes (Dart)
+## 4. Backend Changes (Python)
 
-See `tasks/api-contracts.md` §0 — Auth for the full Dart integration spec.
+See `tasks/api-contracts.md` §0 — Auth for the full Python integration spec.
 
 **Summary:**
 1. Add JWT verification middleware using Clerk JWKS endpoint
@@ -84,7 +84,7 @@ See `tasks/api-contracts.md` §0 — Auth for the full Dart integration spec.
 
 ## 5. Data Model Impact
 
-`farmId` is eliminated as a user-facing concept. The Dart backend may keep an internal `farmId` as a primary key, but the frontend never sends or receives it — the farm is identified implicitly by the authenticated user.
+`farmId` is eliminated as a user-facing concept. The Python backend may keep an internal `farmId` as a primary key, but the frontend never sends or receives it — the farm is identified implicitly by the authenticated user.
 
 **FarmProfile auto-creation (new users):**
 ```json

@@ -29,6 +29,19 @@
 
 ## 已完成
 
+### [2026-07-13] Migrate backend from Dart to Python
+
+**目标**：仅将现有 backend 运行时从 Dart 迁移到 Python，保持 API 路由、鉴权、JSON 文件持久化和 v1 范围不变。
+
+**计划**：
+- [x] 用 Python 等价实现现有 backend 行为
+- [x] 将 backend 依赖与 Docker 运行配置切换到 Python
+- [x] 移除被替代的 Dart backend 文件
+- [x] 对齐当前项目文档中的 backend 技术栈与启动命令
+- [x] 运行 Python 测试和 HTTP smoke test，并补充审查小结
+
+**审查**：后端已由 Dart 迁移为 Python，保留 `GET /defaults`、`GET/PUT /api/me/farm`、`GET /api/me/farm/machinery`、Scenario CRUD、Clerk RS256/JWKS 验签、dev auth、CORS 和 JSON 文件持久化；未新增后端盈亏/保本计算。Docker 已切换到 Python 3.13，依赖为 `PyJWT[crypto]`。验证：Ruff check 通过；5 个 Python 自动化测试通过；实际进程 smoke test 的 defaults 与 farm endpoint 通过。未修改 frontend 实现，且保留了任务开始前已有的 `frontend/.gitignore` 改动。
+
 ### [2026-07-01] Make public app routes viewable without sign-in
 
 **目标**：让访客可以直接打开 Smart Farm 首页、Farm、Breakeven 页面；登录用户仍可使用 Clerk-backed persistence，未登录访客走本地 demo 数据，不被强制跳到 sign-in。

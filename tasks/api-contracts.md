@@ -6,7 +6,7 @@
 
 ---
 
-## 0. Auth — Dart 同事必读（2026-06-25 新增）
+## 0. Auth — Python 后端必读（2026-06-25 新增）
 
 > 完整设计见 `docs/superpowers/specs/2026-06-25-auth-design.md`。
 
@@ -25,7 +25,7 @@ GET https://api.clerk.com/v1/jwks
 - 验签成功后，从 JWT payload 的 **`sub`** claim 取 `userId`（格式：`user_xxxxxxxx`）
 - 把 `userId` 注入 request context，后续接口用它查 / 写数据
 
-推荐 Dart 包：[`dart_jsonwebtoken`](https://pub.dev/packages/dart_jsonwebtoken)（支持 RS256 + JWKS）或 [`jose`](https://pub.dev/packages/jose)。
+Python 实现使用 [`PyJWT`](https://pyjwt.readthedocs.io/) 的 RS256 + JWKS 支持。
 
 ### Farm API 变更（Breaking Change）
 
@@ -76,7 +76,7 @@ v1 = 一个最简单的**单作物盈亏计算器**。后端在 v1 里只做两�
 1. **`GET /defaults`** —— 下发各项成本 / 收入的**默认值**(带地区/作物维度,可被农户覆盖)。
 2. **场景持久化** —— 存 / 读 / 列出农户保存的 Scenario。
 
-**后端不算账。** margin、保本价、price×yield 敏感性网格**全部在前端 TS 计算引擎里实现,是唯一实现**(`frontend/src/lib/breakeven/`,纯函数,签名见 `docs/v1-alignment.md` §7)。前端不会调用、后端也不应提供任何「算好的 margin」端点 —— 因为敏感性拖动要实时重算、不走后端往返,且只保留一份公式实现,避免 TS / Dart 双份公式飘掉。
+**后端不算账。** margin、保本价、price×yield 敏感性网格**全部在前端 TS 计算引擎里实现,是唯一实现**(`frontend/src/lib/breakeven/`,纯函数,签名见 `docs/v1-alignment.md` §7)。前端不会调用、后端也不应提供任何「算好的 margin」端点 —— 因为敏感性拖动要实时重算、不走后端往返,且只保留一份公式实现,避免 TS / Python 双份公式飘掉。
 
 **v1 不存在的端点(不要建)**:行情 / 期货 / basis、breakeven 计算、卖买信号 / 决策驾驶舱。现金价是农户手填输入,v1 不接任何实时数据源。
 

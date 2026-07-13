@@ -1,12 +1,12 @@
-FROM dart:stable
+FROM python:3.13-slim
 
 WORKDIR /app/backend
 
 COPY . .
 
-RUN dart pub get
+RUN pip install --no-cache-dir -r requirements.txt
 
 ENV PORT=8080
 EXPOSE 8080
 
-CMD ["dart", "run", "backend.dart"]
+CMD ["python", "backend.py"]

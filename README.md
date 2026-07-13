@@ -43,7 +43,7 @@ The architecture stays extensible (more crops / regions / features later), but v
 | Layer | Technology |
 |-------|-----------|
 | Frontend | Next.js 16 · React 19 · TypeScript (`strict`) · Tailwind CSS 4 |
-| Backend | Dart (REST/JSON — `GET /defaults` + scenario persistence only) |
+| Backend | Python (REST/JSON — `GET /defaults` + scenario persistence only) |
 | Mocking | MSW (Mock Service Worker) |
 
 ### Getting Started
@@ -69,7 +69,7 @@ smart-farm/
 │       ├── lib/api/      # API client layer
 │       ├── lib/mocks/    # MSW handlers & seed data
 │       └── types/        # Shared TypeScript types
-├── backend/              # Dart backend (defaults + scenario store)
+├── backend/              # Python backend (defaults + scenario store)
 ├── docs/v1-alignment.md  # v1 contract + calc conventions (source of truth)
 └── tasks/                # API contracts & planning docs
 ```
@@ -100,7 +100,7 @@ Smart Farm(v1)是一个面向美国玉米带玉米 / 大豆种植户的**单作�
 后端 GET /defaults(默认值)                    后端 存 / 读场景
 ```
 
-- **计算引擎是前端的活**(TypeScript,唯一真理源)。后端**不算 margin**,只下发默认值 + 存读场景。这样敏感性拖动条能实时重算,也避免 TS / Dart 两份公式飘掉。
+- **计算引擎是前端的活**(TypeScript,唯一真理源)。后端**不算 margin**,只下发默认值 + 存读场景。这样敏感性拖动条能实时重算,也避免 TS / Python 两份公式飘掉。
 - **现金价是农户手填的。** v1 不接任何实时行情。
 
 ### v1 做什么
@@ -122,7 +122,7 @@ Smart Farm(v1)是一个面向美国玉米带玉米 / 大豆种植户的**单作�
 | 层级 | 技术 |
 |------|------|
 | 前端 | Next.js 16 · React 19 · TypeScript(`strict`)· Tailwind CSS 4 |
-| 后端 | Dart(REST/JSON —— 仅 `GET /defaults` + 场景持久化) |
+| 后端 | Python(REST/JSON —— 仅 `GET /defaults` + 场景持久化) |
 | 接口 Mock | MSW(Mock Service Worker) |
 
 ### 快速开始
@@ -148,7 +148,7 @@ smart-farm/
 │       ├── lib/api/      # API 客户端封装层
 │       ├── lib/mocks/    # MSW handlers & 种子数据
 │       └── types/        # 共享 TypeScript 类型
-├── backend/              # Dart 后端(默认值 + 场景存储)
+├── backend/              # Python 后端(默认值 + 场景存储)
 ├── docs/v1-alignment.md  # v1 契约 + 计算口径(真理源)
 └── tasks/                # API 契约 & 规划文档
 ```

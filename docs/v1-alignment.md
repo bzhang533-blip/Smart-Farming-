@@ -2,8 +2,8 @@
 
 **Purpose:** A shared reference so the two of us can build v1 in parallel without our numbers drifting. Please read this before we split the work.
 
-**Stack:** Next.js / React / TypeScript (frontend) · Dart (backend)
-**Last updated:** 2026-06-13
+**Stack:** Next.js / React / TypeScript (frontend) · Python (backend)
+**Last updated:** 2026-07-13
 
 ---
 
@@ -35,9 +35,9 @@ This replaces the clunky extension spreadsheets (Iowa State / FarmDoc style) wit
 
 ## 3. Core principle (please don't skip this)
 
-> **The calculation engine lives only in the frontend, in TypeScript. The Dart backend does NOT compute margins or breakevens — it stores data and serves defaults.**
+> **The calculation engine lives only in the frontend, in TypeScript. The Python backend does NOT compute margins or breakevens — it stores data and serves defaults.**
 
-Why this matters: with one side in TS and one in Dart, the single biggest failure mode is implementing the same formulas twice and watching the two implementations drift apart. So in v1 there is exactly **one** implementation of the math, and it is client-side. The backend treats a scenario as opaque data (plus an optional results snapshot it never recomputes).
+Why this matters: with one side in TS and one in Python, the single biggest failure mode is implementing the same formulas twice and watching the two implementations drift apart. So in v1 there is exactly **one** implementation of the math, and it is client-side. The backend treats a scenario as opaque data (plus an optional results snapshot it never recomputes).
 
 Bonus: client-side math is what makes the sensitivity sliders feel instant — no round trip per drag.
 
@@ -48,10 +48,10 @@ Bonus: client-side math is what makes the sensitivity sliders feel instant — n
 ```mermaid
 flowchart TD
   U[Farmer] --> IN[Input layer]
-  DEF[(Default budgets - Dart)] --> IN
+  DEF[(Default budgets - Python)] --> IN
   IN --> CALC[Calc engine - pure TS]
   CALC --> OUT[Outputs and views]
-  OUT --> SAVE[(Saved scenarios - Dart)]
+  OUT --> SAVE[(Saved scenarios - Python)]
 ```
 
 Frontend owns everything from `Input layer` through `Outputs`. Backend owns the two stores: `Default budgets` (read on load) and `Saved scenarios` (persistence). The only two crossings are: defaults flow in on load, the scenario flows out on save.
@@ -67,7 +67,7 @@ Frontend owns everything from `Input layer` through `Outputs`. Backend owns the 
 - Calls to the two backend endpoints (fetch defaults on load, save/load scenarios).
 - Input validation + formatting (currency, bu/acre).
 
-### Backend — teammate (Dart)
+### Backend — teammate (Python)
 - Serve default crop budgets, keyed by `year` + `region`. Source: ISU Budgets, IL FarmDoc, MN FINBIN — use 2026 figures and record the source per line so the UI can attribute them.
 - Persist scenarios (the full input payload + an optional results snapshot).
 - (Optional) user accounts / auth.
@@ -88,7 +88,7 @@ Frontend owns everything from `Input layer` through `Outputs`. Backend owns the 
 
 ### Scenario schema — single source of truth
 
-Define this once (TS type below + a mirrored JSON Schema / OpenAPI), and generate or hand-align the Dart types from it. **Any change to this schema is a shared decision and goes through both of us.**
+Define this once (TS type below + a mirrored JSON Schema / OpenAPI), and generate or hand-align the Python types from it. **Any change to this schema is a shared decision and goes through both of us.**
 
 ```ts
 type CropKey = "corn" | "soybeans" | "other";

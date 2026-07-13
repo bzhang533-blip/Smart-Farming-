@@ -17,8 +17,10 @@ frontend/.env*
 frontend/*.tsbuildinfo
 frontend/next-env.d.ts
 
-# Dart backend local artifacts
-backend/.dart_tool/
+# Python backend local artifacts
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.venv/
 backend/data/farms.json
 
 # Misc

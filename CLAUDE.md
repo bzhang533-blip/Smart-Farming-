@@ -34,14 +34,14 @@ v1 = 一个**最简单的单作物盈亏计算器**:农户录入 → 算出每�
 ## 2. 角色边界(优先级最高)
 
 - **你(Claude Code)只负责前端**:Next.js + React + TypeScript。
-- **后端由团队成员用 Dart 实现** —— 你**不写、不修改、不重构任何后端 / Dart 代码**。
+- **后端由团队成员用 Python 实现** —— 你**不写、不修改、不重构任何后端 / Python 代码**。
 - 前后端通过 **REST/JSON** 通信,始终针对**约定好的契约**开发。契约与 Scenario schema 见 `@docs/v1-alignment.md` 与 `tasks/api-contracts.md`(两者同源,改一处对齐另一处)。
 - 契约不存在时:① 不擅自实现后端逻辑;② 在 `tasks/api-contracts.md` 写出**期望的**请求 / 响应结构,标 `TODO: 待后端确认`;③ 用 mock / MSW 推进前端。
 
 ### 计算归属(IMPORTANT)
 - **财务计算引擎(margin、保本价、敏感性网格)在前端用 TS 实现,是唯一实现。** 写成纯函数,签名见 `@docs/v1-alignment.md` §7。
-- **后端(Dart)不算账**,只提供 `GET /defaults` 默认值 + 场景持久化。前端不要指望后端返回算好的 margin。
-- 理由:① 敏感性拖动条要实时重算、不走后端往返;② 计算只有一份实现,不让 TS / Dart 两份公式飘掉。
+- **后端(Python)不算账**,只提供 `GET /defaults` 默认值 + 场景持久化。前端不要指望后端返回算好的 margin。
+- 理由:① 敏感性拖动条要实时重算、不走后端往返;② 计算只有一份实现,不让 TS / Python 两份公式飘掉。
 
 ---
 

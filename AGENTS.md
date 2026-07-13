@@ -17,7 +17,7 @@ Farmer input → calc engine (frontend TS) → output (P&L · breakeven · sensi
 A farmer enters yield, a **hand-entered local cash price**, and costs, then sees the breakeven price and whether they're profitable. The bar is: easier than the spreadsheets farmers use today, with the breakeven math correct.
 
 **Hard constraints agents must internalize:**
-- Frontend: Next.js (App Router) + TypeScript. Backend: Dart. **No cross-contamination.**
+- Frontend: Next.js (App Router) + TypeScript. Backend: Python. **No cross-contamination.**
 - **The calc engine lives in the frontend** (`frontend/src/lib/breakeven/`, pure TS — the single authoritative implementation). The backend does **not** compute margins; it only serves `GET /defaults` and persists scenarios. Never add a backend breakeven/margin endpoint.
 - Crops: corn / soybean (an `other` slot is reserved). Architecture is **data-driven** — new crops / regions / cost items are config entries, never code branches.
 - **v1 OUT — do not build**: live quotes / futures / basis, buy-sell signals, alerts, decision cockpit, rotation advice, marketing logs, insurance, depreciation engines, PDF reports. Cash price is hand-entered; v1 connects to no live data feed.
@@ -44,14 +44,15 @@ A farmer enters yield, a **hand-entered local cash price**, and costs, then sees
 
 | Command | Purpose |
 |---------|---------|
-| `dart run backend/backend.dart` | Start Dart API server |
+| `python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt` | Install backend dependencies |
+| `.venv/bin/python backend/backend.py` | Start Python API server |
 
 ---
 
 ## Judgment Boundaries
 
 ### 🚫 NEVER
-- Write, modify, or refactor Dart / backend code (frontend-agent scope only)
+- Write, modify, or refactor Python / backend code (frontend-agent scope only)
 - Add a backend endpoint that computes breakeven / margin / sensitivity — that math is the frontend's single source of truth
 - Build any v1-OUT feature (market data, futures, basis, signals, alerts, cockpit, rotation) — see Mission
 - Hardcode `if (state === 'IA')` or any crop/region branch — always use `src/config/` data-driven patterns
@@ -61,7 +62,7 @@ A farmer enters yield, a **hand-entered local cash price**, and costs, then sees
 - Force-push to `main` or run destructive git operations without explicit user instruction
 
 ### ⚠️ ASK FIRST
-- Adding or removing npm / Dart dependencies
+- Adding or removing npm / Python dependencies
 - Changing the shape of any endpoint in `tasks/api-contracts.md` or the `Scenario` schema in `docs/v1-alignment.md` (requires backend alignment)
 - Modifying shared TypeScript types in `src/types/` in a breaking way
 - Deleting existing feature code (confirm scope before removing working features)
@@ -91,7 +92,7 @@ This project coordinates multiple specialized agents. Each agent reads this root
 
 ### ⚙️ Backend Agent
 **Scope**: `backend/` only.
-**Stack**: Dart.
+**Stack**: Python.
 **Reads first**: `tasks/api-contracts.md` + `docs/v1-alignment.md` — the authoritative contract for every endpoint shape and the `Scenario` schema.
 **Key rules**:
 - v1 surface is only `GET /defaults` (default values) + scenario persistence (CRUD). **Do not compute margins / breakeven / sensitivity** — that is the frontend's single source of truth.
@@ -140,7 +141,7 @@ smart-farm/
 │   ├── lib/api/          # Typed fetch wrappers
 │   ├── lib/mocks/        # MSW handlers + seed data, mirrors api-contracts.md
 │   └── types/            # Shared TS types, co-maintained with api-contracts.md + v1-alignment.md
-├── backend/              # Dart REST API — GET /defaults + scenario persistence (no calc)
+├── backend/              # Python REST API — GET /defaults + scenario persistence (no calc)
 ├── docs/v1-alignment.md  # v1 contract + calc conventions (source of truth)
 └── tasks/
     ├── api-contracts.md  # REST endpoint shapes (defaults + scenarios)
