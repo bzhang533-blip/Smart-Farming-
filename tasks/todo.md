@@ -6,6 +6,14 @@
 
 ## 进行中
 
+### [2026-07-14] fix: /farm 机械区闪烁 + 保存条误弹(60361d6)
+
+**根因**:① `FarmClient` 初始化快照写死 `setOriginalMachinery([])`(fetch 结果作用域在 try 块内拿不到),`isDirty` 永真 → 每次进页保存条必弹;② machinery 是组件本地 state,每次从 /breakeven 切回都重挂载重取,列表先空后填 → 闪一下。
+
+**修复**:machinery 纳入 farmStore 缓存(与 farm/defaults 同模式,null=未取过,取过即缓存),快照改用 store 里的真实数据。
+
+**验证**:tsc / lint / vitest 19 项全绿;浏览器实测:首次加载 2 台机械无误弹、客户端切页即刻渲染无骨架、真实编辑时保存条仍正常弹出/Discard 复原;`npm run build` 通过。
+
 ### [2026-07-14] v1 审计缺口修复(2/3/4/5)
 
 > 依据 `tasks/status-2026-07-14.md` §4。缺口 1(保本单产展示)按团队决定刻意隐藏,不修。
