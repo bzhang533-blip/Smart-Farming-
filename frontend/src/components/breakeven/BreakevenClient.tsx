@@ -33,7 +33,7 @@ function toCropEntry(field: Field, inputs: FieldInputs): CropEntry {
   return {
     crop: field.crop,
     acres: field.acres,
-    yieldBasis: "aph",
+    yieldBasis: inputs.yieldBasis,
     yieldBuPerAcre: inputs.yieldBuPerAcre,
     cashPricePerBu: inputs.cashPricePerBu,
     govtPaymentPerAcre:

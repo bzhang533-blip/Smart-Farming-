@@ -18,6 +18,7 @@ function buildInputMaps(
     const cropDefs = defaults.crops[field.crop];
     const fi: FieldInputs = {
       cashPricePerBu: 0,
+      yieldBasis: "aph",
       yieldBuPerAcre: field.aph,
       landCostPerAcre: cropDefs?.landCostPerAcre ?? 0,
       machineryCostPerAcre: cropDefs?.machineryCostPerAcre ?? 0,
@@ -102,6 +103,7 @@ export const useFarmStore = create<FarmState & FarmActions>((set, get) => ({
         farm.fields.find((f) => f.fieldId === fieldId)?.aph ?? 0;
       const fi: FieldInputs = {
         cashPricePerBu: 0,
+        yieldBasis: "aph",
         yieldBuPerAcre: currentAph,
         landCostPerAcre: cropDefs?.landCostPerAcre ?? 0,
         machineryCostPerAcre: cropDefs?.machineryCostPerAcre ?? 0,
@@ -140,6 +142,7 @@ export const useFarmStore = create<FarmState & FarmActions>((set, get) => ({
     const cropDefs = defaults?.crops[field.crop];
     const fi: FieldInputs = {
       cashPricePerBu: 0,
+      yieldBasis: "aph",
       yieldBuPerAcre: field.aph,
       landCostPerAcre: cropDefs?.landCostPerAcre ?? 0,
       machineryCostPerAcre: cropDefs?.machineryCostPerAcre ?? 0,
@@ -159,10 +162,13 @@ export const useFarmStore = create<FarmState & FarmActions>((set, get) => ({
     const { defaults, fieldInputs } = get();
     if (!defaults) return;
     const { inputs, defaultsMap } = buildInputMaps(snapshot, defaults);
-    // Preserve cashPricePerBu set on /breakeven so those edits survive a Cancel.
+    // Preserve revenue-side inputs set on /breakeven so those edits survive a Cancel.
     for (const [fieldId, fi] of inputs) {
       const existing = fieldInputs.get(fieldId);
-      if (existing) fi.cashPricePerBu = existing.cashPricePerBu;
+      if (existing) {
+        fi.cashPricePerBu = existing.cashPricePerBu;
+        fi.yieldBasis = existing.yieldBasis;
+      }
     }
     set({ farm: snapshot, fieldInputs: inputs, defaultFieldInputs: defaultsMap });
   },
