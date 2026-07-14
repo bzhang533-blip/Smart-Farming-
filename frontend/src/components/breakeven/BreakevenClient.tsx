@@ -467,6 +467,29 @@ export default function BreakevenClient() {
             <strong className="text-stone-600">local cash price</strong>, not futures. Cost defaults from{" "}
             {defaults ? "backend (GET /defaults)" : "local config"}.
           </p>
+
+          {defaults && defaults.sources.length > 0 && (
+            <p className="text-xs text-stone-400">
+              Default sources:{" "}
+              {defaults.sources.map((s, i) => (
+                <span key={s.url}>
+                  {i > 0 && " · "}
+                  {s.url.startsWith("http") ? (
+                    <a
+                      href={s.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline decoration-stone-300 hover:text-stone-600"
+                    >
+                      {s.label}
+                    </a>
+                  ) : (
+                    s.label
+                  )}
+                </span>
+              ))}
+            </p>
+          )}
         </>
       ) : derived && entry ? (
         <div className="rounded-2xl border border-stone-100 bg-stone-50 p-6 text-center text-sm text-stone-400">
