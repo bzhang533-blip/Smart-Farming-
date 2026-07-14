@@ -39,7 +39,6 @@ export default function FarmClient() {
   );
   const [error, setError] = useState<string | null>(null);
   const [machineryError, setMachineryError] = useState<string | null>(null);
-  const [machinery, setMachinery] = useState<Machinery[]>([]);
 
   const hasInitialized = useRef(false);
   const [originalFarm, setOriginalFarm] = useState<FarmProfile | null>(null);
@@ -58,6 +57,9 @@ export default function FarmClient() {
   const [showMachineryDeleteConfirm, setShowMachineryDeleteConfirm] = useState(false);
 
   const farm = useFarmStore((s) => s.farm);
+  // Cached in the store like `farm`, so revisits render instantly without refetching.
+  const machinery = useFarmStore((s) => s.machinery) ?? [];
+  const setMachinery = useFarmStore((s) => s.setMachinery);
   const initFromFetch = useFarmStore((s) => s.initFromFetch);
   const updateFarmName = useFarmStore((s) => s.updateFarmName);
   const updateField = useFarmStore((s) => s.updateField);
@@ -94,17 +96,20 @@ export default function FarmClient() {
       }
 
       // Machinery failure is non-fatal — show the farm profile anyway.
-      try {
-        const macRes = await getMachinery();
-        if (!cancelled) {
-          setMachinery(macRes.machinery);
-          setMachineryError(null);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setMachineryError(
-            err instanceof Error ? err.message : "Failed to load machinery",
-          );
+      // Only fetch when the store has no cached list (null = never fetched).
+      if (useFarmStore.getState().machinery === null) {
+        try {
+          const macRes = await getMachinery();
+          if (!cancelled) {
+            setMachinery(macRes.machinery);
+            setMachineryError(null);
+          }
+        } catch (err) {
+          if (!cancelled) {
+            setMachineryError(
+              err instanceof Error ? err.message : "Failed to load machinery",
+            );
+          }
         }
       }
 
@@ -113,7 +118,9 @@ export default function FarmClient() {
         if (!hasInitialized.current) {
           hasInitialized.current = true;
           setOriginalFarm(JSON.parse(JSON.stringify(useFarmStore.getState().farm)));
-          setOriginalMachinery(JSON.parse(JSON.stringify([])));
+          setOriginalMachinery(
+            JSON.parse(JSON.stringify(useFarmStore.getState().machinery ?? [])),
+          );
         }
         setLoading(false);
       }
@@ -123,7 +130,7 @@ export default function FarmClient() {
     return () => {
       cancelled = true;
     };
-  }, [clerkLoaded, initFromFetch]);
+  }, [clerkLoaded, initFromFetch, setMachinery]);
 
   if (error) {
     return (
@@ -197,15 +204,15 @@ export default function FarmClient() {
   }
 
   function confirmMachineryDelete() {
-    setMachinery((prev) => prev.filter((m) => !machinerySelectedIds.has(m.machineryId)));
+    setMachinery(machinery.filter((m) => !machinerySelectedIds.has(m.machineryId)));
     exitMachinerySelectionMode();
     setShowMachineryDeleteConfirm(false);
   }
 
   function handleAddMachinery() {
     const id = `machinery-${Date.now()}`;
-    setMachinery((prev) => [
-      ...prev,
+    setMachinery([
+      ...machinery,
       {
         machineryId: id,
         type: "tractor",
@@ -221,8 +228,8 @@ export default function FarmClient() {
   }
 
   function updateMachinery(id: string, patch: Partial<Machinery>) {
-    setMachinery((prev) =>
-      prev.map((m) => (m.machineryId === id ? { ...m, ...patch } : m)),
+    setMachinery(
+      machinery.map((m) => (m.machineryId === id ? { ...m, ...patch } : m)),
     );
   }
 

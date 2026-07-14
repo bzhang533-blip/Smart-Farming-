@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { CROP_CONFIG } from "@/config/crops";
-import type { FarmProfile, Field } from "@/types/farm";
+import type { FarmProfile, Field, Machinery } from "@/types/farm";
 import type { DefaultsResponse } from "@/types/defaults";
 import type { FieldInputs } from "@/components/breakeven/FieldInputPanel";
 
@@ -39,6 +39,8 @@ function buildInputMaps(
 interface FarmState {
   farm: FarmProfile | null;
   defaults: DefaultsResponse | null;
+  /** null = not fetched yet; cached across page navigations like `farm`. */
+  machinery: Machinery[] | null;
   fieldInputs: Map<string, FieldInputs>;
   defaultFieldInputs: Map<string, FieldInputs>;
 }
@@ -55,6 +57,8 @@ interface FarmActions {
   updateField: (fieldId: string, patch: Partial<Field>) => void;
   /** Called by BreakevenClient's FieldInputPanel onChange. */
   updateFieldInputs: (fieldId: string, inputs: FieldInputs) => void;
+  /** Replace the cached machinery list (fetch result or local edits). */
+  setMachinery: (items: Machinery[]) => void;
   /** Add a new field, seeding its FieldInputs from current defaults. */
   addField: (field: Field) => void;
   /** Remove fields by id, cleaning up FieldInputs. */
@@ -69,6 +73,7 @@ interface FarmActions {
 export const useFarmStore = create<FarmState & FarmActions>((set, get) => ({
   farm: null,
   defaults: null,
+  machinery: null,
   fieldInputs: new Map(),
   defaultFieldInputs: new Map(),
 
@@ -139,6 +144,10 @@ export const useFarmStore = create<FarmState & FarmActions>((set, get) => ({
     set((s) => ({
       fieldInputs: new Map(s.fieldInputs).set(fieldId, inputs),
     }));
+  },
+
+  setMachinery(items) {
+    set({ machinery: items });
   },
 
   addField(field) {
