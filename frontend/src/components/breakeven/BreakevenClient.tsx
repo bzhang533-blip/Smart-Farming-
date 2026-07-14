@@ -36,8 +36,7 @@ function toCropEntry(field: Field, inputs: FieldInputs): CropEntry {
     yieldBasis: inputs.yieldBasis,
     yieldBuPerAcre: inputs.yieldBuPerAcre,
     cashPricePerBu: inputs.cashPricePerBu,
-    govtPaymentPerAcre:
-      CROP_CONFIG[field.crop].revenueDefaults.govtPaymentPerAcre,
+    govtPaymentPerAcre: inputs.govtPaymentPerAcre,
     directCosts: inputs.directCosts,
     landCostPerAcre: inputs.landCostPerAcre,
     machineryCostPerAcre: inputs.machineryCostPerAcre,

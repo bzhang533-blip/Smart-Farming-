@@ -7,6 +7,7 @@ export interface FieldInputs {
   cashPricePerBu: number;
   yieldBasis: "aph" | "expected";
   yieldBuPerAcre: number;
+  govtPaymentPerAcre: number;
   landCostPerAcre: number;
   machineryCostPerAcre: number;
   directCosts: CostLine[];
@@ -63,7 +64,7 @@ export default function FieldInputPanel({
         <p className="text-base font-semibold text-stone-900 mt-0.5">Enter Your Numbers</p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <NumInput
           label="Cash Price"
           hint="$/bu — your local elevator"
@@ -98,6 +99,13 @@ export default function FieldInputPanel({
               <span className="text-xs text-stone-400">bu/ac</span>
             </div>
           }
+        />
+        <NumInput
+          label="Govt Payment"
+          hint="$/ac — optional"
+          value={inputs.govtPaymentPerAcre}
+          onChange={(v) => setNum("govtPaymentPerAcre", v)}
+          step="1"
         />
         <NumInput
           label="Land Cost"

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { CROP_CONFIG } from "@/config/crops";
 import type { FarmProfile, Field } from "@/types/farm";
 import type { DefaultsResponse } from "@/types/defaults";
 import type { FieldInputs } from "@/components/breakeven/FieldInputPanel";
@@ -20,6 +21,8 @@ function buildInputMaps(
       cashPricePerBu: 0,
       yieldBasis: "aph",
       yieldBuPerAcre: field.aph,
+      govtPaymentPerAcre:
+        CROP_CONFIG[field.crop].revenueDefaults.govtPaymentPerAcre,
       landCostPerAcre: cropDefs?.landCostPerAcre ?? 0,
       machineryCostPerAcre: cropDefs?.machineryCostPerAcre ?? 0,
       directCosts: cropDefs?.directCosts.map((c) => ({ ...c })) ?? [],
@@ -105,6 +108,8 @@ export const useFarmStore = create<FarmState & FarmActions>((set, get) => ({
         cashPricePerBu: 0,
         yieldBasis: "aph",
         yieldBuPerAcre: currentAph,
+        govtPaymentPerAcre:
+          CROP_CONFIG[patch.crop].revenueDefaults.govtPaymentPerAcre,
         landCostPerAcre: cropDefs?.landCostPerAcre ?? 0,
         machineryCostPerAcre: cropDefs?.machineryCostPerAcre ?? 0,
         directCosts: cropDefs?.directCosts.map((c) => ({ ...c })) ?? [],
@@ -144,6 +149,8 @@ export const useFarmStore = create<FarmState & FarmActions>((set, get) => ({
       cashPricePerBu: 0,
       yieldBasis: "aph",
       yieldBuPerAcre: field.aph,
+      govtPaymentPerAcre:
+        CROP_CONFIG[field.crop].revenueDefaults.govtPaymentPerAcre,
       landCostPerAcre: cropDefs?.landCostPerAcre ?? 0,
       machineryCostPerAcre: cropDefs?.machineryCostPerAcre ?? 0,
       directCosts: cropDefs?.directCosts.map((c) => ({ ...c })) ?? [],
@@ -168,6 +175,7 @@ export const useFarmStore = create<FarmState & FarmActions>((set, get) => ({
       if (existing) {
         fi.cashPricePerBu = existing.cashPricePerBu;
         fi.yieldBasis = existing.yieldBasis;
+        fi.govtPaymentPerAcre = existing.govtPaymentPerAcre;
       }
     }
     set({ farm: snapshot, fieldInputs: inputs, defaultFieldInputs: defaultsMap });
