@@ -40,31 +40,31 @@ export const COST_CATEGORY_HINTS: Record<CostCategory, string> = {
 
 export const COST_ITEM_CATALOG: CostItemDef[] = [
   // —— Direct Expense（17 项）——
-  { key: "chemicals-herbicide", label: "Chemicals (Herbicide)", category: "direct", defaults: { corn: 55, soybeans: 66 } },
-  { key: "fungicide-insecticide", label: "Fungicide/Insecticide", category: "direct", defaults: { corn: 0, soybeans: 0 } },
-  { key: "crop-insurance", label: "Crop Insurance", category: "direct", defaults: { corn: 22, soybeans: 19 } },
-  { key: "custom-hire", label: "Custom Hire", category: "direct", defaults: { corn: 15, soybeans: 10 } },
-  { key: "labor-hired-benefits", label: "Labor Hired & Employee Benefits", category: "direct", defaults: { corn: 21, soybeans: 15 } },
-  { key: "fertilizer-lime", label: "Fertilizer and Lime", category: "direct", defaults: { corn: 200, soybeans: 72 } },
-  { key: "gas-fuel-oil", label: "Gas/Fuel/Oil", category: "direct", defaults: { corn: 30, soybeans: 20 } },
-  { key: "insurance", label: "Insurance", category: "direct", defaults: { corn: 20, soybeans: 16 } },
-  { key: "operating-interest", label: "Operating Interest", category: "direct", defaults: { corn: 20, soybeans: 15 } },
-  { key: "repairs-maintenance", label: "Repairs/Maintenance", category: "direct", defaults: { corn: 46, soybeans: 33 } },
-  { key: "seed-plants-treated", label: "Seed/Plants (Treated)", category: "direct", defaults: { corn: 135, soybeans: 65 } },
-  { key: "storage-drying-warehouse", label: "Storage/Drying/Warehouse", category: "direct", defaults: { corn: 30, soybeans: 2 } },
-  { key: "supplies", label: "Supplies", category: "direct", defaults: { corn: 0, soybeans: 0 } },
-  { key: "trucking-freight", label: "Trucking/Freight", category: "direct", defaults: { corn: 4, soybeans: 3 } },
-  { key: "utilities", label: "Utilities", category: "direct", defaults: { corn: 10, soybeans: 8 } },
-  { key: "other-expense-1", label: "Other Expense", category: "direct", defaults: { corn: 14, soybeans: 10 } },
-  { key: "other-expense-2", label: "Other Expense", category: "direct", defaults: { corn: 0, soybeans: 0 } },
+  { key: "chemicals-herbicide", label: "Chemicals (Herbicide)", category: "direct", defaults: { corn: 55, soybeans: 66, other: 0 } },
+  { key: "fungicide-insecticide", label: "Fungicide/Insecticide", category: "direct", defaults: { corn: 0, soybeans: 0, other: 0 } },
+  { key: "crop-insurance", label: "Crop Insurance", category: "direct", defaults: { corn: 22, soybeans: 19, other: 0 } },
+  { key: "custom-hire", label: "Custom Hire", category: "direct", defaults: { corn: 15, soybeans: 10, other: 0 } },
+  { key: "labor-hired-benefits", label: "Labor Hired & Employee Benefits", category: "direct", defaults: { corn: 21, soybeans: 15, other: 0 } },
+  { key: "fertilizer-lime", label: "Fertilizer and Lime", category: "direct", defaults: { corn: 200, soybeans: 72, other: 0 } },
+  { key: "gas-fuel-oil", label: "Gas/Fuel/Oil", category: "direct", defaults: { corn: 30, soybeans: 20, other: 0 } },
+  { key: "insurance", label: "Insurance", category: "direct", defaults: { corn: 20, soybeans: 16, other: 0 } },
+  { key: "operating-interest", label: "Operating Interest", category: "direct", defaults: { corn: 20, soybeans: 15, other: 0 } },
+  { key: "repairs-maintenance", label: "Repairs/Maintenance", category: "direct", defaults: { corn: 46, soybeans: 33, other: 0 } },
+  { key: "seed-plants-treated", label: "Seed/Plants (Treated)", category: "direct", defaults: { corn: 135, soybeans: 65, other: 0 } },
+  { key: "storage-drying-warehouse", label: "Storage/Drying/Warehouse", category: "direct", defaults: { corn: 30, soybeans: 2, other: 0 } },
+  { key: "supplies", label: "Supplies", category: "direct", defaults: { corn: 0, soybeans: 0, other: 0 } },
+  { key: "trucking-freight", label: "Trucking/Freight", category: "direct", defaults: { corn: 4, soybeans: 3, other: 0 } },
+  { key: "utilities", label: "Utilities", category: "direct", defaults: { corn: 10, soybeans: 8, other: 0 } },
+  { key: "other-expense-1", label: "Other Expense", category: "direct", defaults: { corn: 14, soybeans: 10, other: 0 } },
+  { key: "other-expense-2", label: "Other Expense", category: "direct", defaults: { corn: 0, soybeans: 0, other: 0 } },
 
   // —— Capital Expense（2 项）——
-  { key: "land-cost", label: "Land Cost (P&I + Rent + RE Taxes)", category: "capital", defaults: { corn: 265, soybeans: 265 } },
-  { key: "machinery-cost", label: "Machinery Cost (P&I + Lease)", category: "capital", defaults: { corn: 65, soybeans: 65 } },
+  { key: "land-cost", label: "Land Cost (P&I + Rent + RE Taxes)", category: "capital", defaults: { corn: 265, soybeans: 265, other: 0 } },
+  { key: "machinery-cost", label: "Machinery Cost (P&I + Lease)", category: "capital", defaults: { corn: 65, soybeans: 65, other: 0 } },
 
   // —— Net Family Living（2 项；非农收入为抵减）——
-  { key: "family-living-expense", label: "Family Living Expense", category: "netFamilyLiving", sign: 1, defaults: { corn: 0, soybeans: 0 } },
-  { key: "non-farm-income-wages", label: "Non-Farm Income & Wages", category: "netFamilyLiving", sign: -1, defaults: { corn: 0, soybeans: 0 } },
+  { key: "family-living-expense", label: "Family Living Expense", category: "netFamilyLiving", sign: 1, defaults: { corn: 0, soybeans: 0, other: 0 } },
+  { key: "non-farm-income-wages", label: "Non-Farm Income & Wages", category: "netFamilyLiving", sign: -1, defaults: { corn: 0, soybeans: 0, other: 0 } },
 ];
 
 /** 目录索引（按 key 快速查 def）。 */

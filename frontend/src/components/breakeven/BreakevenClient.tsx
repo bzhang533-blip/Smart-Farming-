@@ -20,7 +20,7 @@ import {
   totalDirectExpense,
   wholeFarm,
 } from "@/lib/calc/calc";
-import type { CropEntry, CropKey, Scenario } from "@/lib/calc/scenario";
+import type { CropEntry, Scenario } from "@/lib/calc/scenario";
 import { CROP_CONFIG } from "@/config/crops";
 import type { FarmProfile, Field } from "@/types";
 import FieldInputPanel, { type FieldInputs } from "./FieldInputPanel";
@@ -31,7 +31,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 function toCropEntry(field: Field, inputs: FieldInputs): CropEntry {
   return {
-    crop: field.crop as CropKey,
+    crop: field.crop,
     acres: field.acres,
     yieldBasis: "aph",
     yieldBuPerAcre: inputs.yieldBuPerAcre,

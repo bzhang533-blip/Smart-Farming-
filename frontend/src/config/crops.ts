@@ -36,6 +36,14 @@ export const CROP_CONFIG: Record<Crop, CropConfig> = {
     revenueDefaults: { aph: 60, cashPrice: 10.2, govtPaymentPerAcre: 0 },
     sensitivity: { yieldStep: 4, yieldExtent: 3, priceStep: 0.5, priceExtent: 4 },
   },
+  // v1 预留槽:无地区默认值,全部由农户手填。
+  other: {
+    label: "Other",
+    unit: "bu/acre",
+    futuresSymbol: "",
+    revenueDefaults: { aph: 0, cashPrice: 0, govtPaymentPerAcre: 0 },
+    sensitivity: { yieldStep: 5, yieldExtent: 3, priceStep: 0.25, priceExtent: 4 },
+  },
 };
 
 export const CROPS = Object.keys(CROP_CONFIG) as Crop[];

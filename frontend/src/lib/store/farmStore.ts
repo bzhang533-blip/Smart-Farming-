@@ -2,7 +2,6 @@ import { create } from "zustand";
 import type { FarmProfile, Field } from "@/types/farm";
 import type { DefaultsResponse } from "@/types/defaults";
 import type { FieldInputs } from "@/components/breakeven/FieldInputPanel";
-import type { CropKey } from "@/lib/calc/scenario";
 
 // Build FieldInputs maps from a FarmProfile + DefaultsResponse.
 // Used on initial load; also called when a field's crop changes.
@@ -16,8 +15,7 @@ function buildInputMaps(
   const inputs = new Map<string, FieldInputs>();
   const defaultsMap = new Map<string, FieldInputs>();
   for (const field of farm.fields) {
-    const cropKey = field.crop as CropKey;
-    const cropDefs = defaults.crops[cropKey];
+    const cropDefs = defaults.crops[field.crop];
     const fi: FieldInputs = {
       cashPricePerBu: 0,
       yieldBuPerAcre: field.aph,
@@ -99,8 +97,7 @@ export const useFarmStore = create<FarmState & FarmActions>((set, get) => ({
 
     // Crop changed: re-seed FieldInputs from new crop defaults.
     if (patch.crop !== undefined && defaults) {
-      const cropKey = patch.crop as CropKey;
-      const cropDefs = defaults.crops[cropKey];
+      const cropDefs = defaults.crops[patch.crop];
       const currentAph =
         farm.fields.find((f) => f.fieldId === fieldId)?.aph ?? 0;
       const fi: FieldInputs = {
@@ -140,8 +137,7 @@ export const useFarmStore = create<FarmState & FarmActions>((set, get) => ({
   addField(field) {
     const { farm, defaults, fieldInputs, defaultFieldInputs } = get();
     if (!farm) return;
-    const cropKey = field.crop as CropKey;
-    const cropDefs = defaults?.crops[cropKey];
+    const cropDefs = defaults?.crops[field.crop];
     const fi: FieldInputs = {
       cashPricePerBu: 0,
       yieldBuPerAcre: field.aph,
