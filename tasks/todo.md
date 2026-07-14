@@ -6,6 +6,44 @@
 
 ## 进行中
 
+### [2026-07-14] v1 审计缺口修复(2/3/4/5)
+
+> 依据 `tasks/status-2026-07-14.md` §4。缺口 1(保本单产展示)按团队决定刻意隐藏,不修。
+> 无计算引擎改动、无契约改动(Scenario schema 不变,`yieldBasis`/`govtPaymentPerAcre` 字段本就存在)。
+> 测试策略:组件测试栈未配置(CLAUDE.md §7),不为四个小 UI 改动引入 jsdom/testing-library;
+> 验证 = 既有 vitest 19 项 + `tsc --noEmit` + `npm run lint` + 浏览器实测四个行为。
+
+**Task 1 — UI 预留 "other" 作物槽(缺口 4,先做:类型地基)**
+- [x] `types/common.ts`:`Crop = "corn" | "soybeans" | "other"`
+- [x] `config/crops.ts`:CROP_CONFIG 加 `other` 条目(label "Other",revenueDefaults 全 0,sensitivity `{ yieldStep: 5, yieldExtent: 3, priceStep: 0.25, priceExtent: 4 }`)
+- [x] `config/costModel.ts`:21 条 catalog 的 `defaults` 各加 `other: 0` 列(文件注释即约定「加一种作物 = 加一列」)
+- [x] 清理冗余强转:`farmStore.ts`(3 处 `field.crop as CropKey` / `patch.crop as CropKey`)与 `BreakevenClient.tsx:34`(`field.crop as CropKey`)直接用 `field.crop`;删除各自未再使用的 `CropKey` import
+- [x] 验证:tsc / lint / vitest 全绿;/farm 字段作物下拉出现 "Other"(CROPS 由 CROP_CONFIG 键派生,自动带出)
+- [x] Commit: `feat(crops): reserve "other" crop slot in UI config`
+
+**Task 2 — 单产 APH/Expected 切换(缺口 2)**
+- [x] `FieldInputPanel.tsx`:`FieldInputs` 加 `yieldBasis: "aph" | "expected"`;`NumInput` 加可选 `footer?: React.ReactNode`(渲染于 hint 位置);Yield 输入下方渲染两枚 segmented 按钮 APH / Expected,点击 `onChange({ ...inputs, yieldBasis })`
+- [x] `farmStore.ts`:三处 FieldInputs 种子(`buildInputMaps`、`updateField` crop 变更分支、`addField`)加 `yieldBasis: "aph"`;`resetFarm` 保留用户已设的 `yieldBasis`(与 cashPricePerBu 同为 revenue 侧输入)
+- [x] `BreakevenClient.tsx` `toCropEntry`:`yieldBasis: inputs.yieldBasis`(替换硬编码 `"aph"`)
+- [x] Commit: `feat(breakeven): APH/expected yield basis toggle`
+
+**Task 3 — 政府补贴可编辑(缺口 3)**
+- [x] `FieldInputPanel.tsx`:`FieldInputs` 加 `govtPaymentPerAcre: number`;网格加第 5 个 NumInput(label "Govt Payment",hint "$/ac — optional",step "1");网格类改 `grid-cols-2 sm:grid-cols-3 lg:grid-cols-5`
+- [x] `farmStore.ts`:三处种子从 `CROP_CONFIG[field.crop].revenueDefaults.govtPaymentPerAcre` 取值(import CROP_CONFIG);`resetFarm` 保留用户已设值
+- [x] `BreakevenClient.tsx` `toCropEntry`:`govtPaymentPerAcre: inputs.govtPaymentPerAcre`(替换 CROP_CONFIG 直取);敏感性网格经 calc 引擎自动含补贴,无需改
+- [x] Commit: `feat(breakeven): editable government payment input`
+
+**Task 4 — 默认值来源 attribution(缺口 5)**
+- [x] `BreakevenClient.tsx` 页脚:`defaults.sources` 渲染为 "Default sources: A · B · C";`url` 以 http 开头的渲染 `<a target="_blank" rel="noreferrer">`,否则纯文本(首条是本地 xlsx 路径)
+- [x] Commit: `feat(breakeven): show defaults source attribution`
+
+**Task 5 — 收尾验证**
+- [x] `npx vitest run`(19 项)+ `npx tsc --noEmit` + `npm run lint` 全绿
+- [x] 浏览器实测:basis 切换、补贴输入影响 margin/敏感性、Other 作物字段全流程、sources 链接
+- [x] todo.md 勾选 + 审查小结;如有教训记 lessons.md
+
+**审查**:四个 commit(9edc396 / 6e42055 / cc3ca30 / d611bef)全部落地。浏览器实测(dev + MSW/demo 数据):① corn 校验值精确命中(BE $4.533、总成本 $952、margin −$70);② 政府补贴 $50/ac → margin −$70→−$20、revenue $882→$932、整场收入 +$16,000(=50×320ac)、敏感性中心格 −$70→−$20,证明补贴贯通 calc 引擎与敏感性公式;③ APH/Expected 切换高亮正确、写入 FieldInputs 并经 `toCropEntry` 入 Scenario,Save Scenario 成功;④ /farm 字段编辑的作物下拉出现 Corn/Soybeans/Other;⑤ 页脚渲染全部 4 条 default sources。最终 `npm run build` 通过。验证期间临时改动(middleware 公开路由、`.env.development.local` 清空 API base)已全部还原,未入库。保本单产展示(缺口 1)按团队决定维持隐藏。
+
 ### [2026-06-20] Wire GET /defaults + Scenario CRUD (Save / Load)
 
 **目标**：后端已就绪（`GET /defaults`、`POST/GET/DELETE /scenarios`），前端补齐三项缺口：① `"soybean"→"soybeans"` 迁移（前置条件，否则 load 流程 type 不对）；② 改为从 `/defaults` 拉取每作物成本默认值；③ 保存场景 / 选取并加载场景的 UI。

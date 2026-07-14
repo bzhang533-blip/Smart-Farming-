@@ -1,8 +1,8 @@
 import { create } from "zustand";
+import { CROP_CONFIG } from "@/config/crops";
 import type { FarmProfile, Field } from "@/types/farm";
 import type { DefaultsResponse } from "@/types/defaults";
 import type { FieldInputs } from "@/components/breakeven/FieldInputPanel";
-import type { CropKey } from "@/lib/calc/scenario";
 
 // Build FieldInputs maps from a FarmProfile + DefaultsResponse.
 // Used on initial load; also called when a field's crop changes.
@@ -16,11 +16,13 @@ function buildInputMaps(
   const inputs = new Map<string, FieldInputs>();
   const defaultsMap = new Map<string, FieldInputs>();
   for (const field of farm.fields) {
-    const cropKey = field.crop as CropKey;
-    const cropDefs = defaults.crops[cropKey];
+    const cropDefs = defaults.crops[field.crop];
     const fi: FieldInputs = {
       cashPricePerBu: 0,
+      yieldBasis: "aph",
       yieldBuPerAcre: field.aph,
+      govtPaymentPerAcre:
+        CROP_CONFIG[field.crop].revenueDefaults.govtPaymentPerAcre,
       landCostPerAcre: cropDefs?.landCostPerAcre ?? 0,
       machineryCostPerAcre: cropDefs?.machineryCostPerAcre ?? 0,
       directCosts: cropDefs?.directCosts.map((c) => ({ ...c })) ?? [],
@@ -99,13 +101,15 @@ export const useFarmStore = create<FarmState & FarmActions>((set, get) => ({
 
     // Crop changed: re-seed FieldInputs from new crop defaults.
     if (patch.crop !== undefined && defaults) {
-      const cropKey = patch.crop as CropKey;
-      const cropDefs = defaults.crops[cropKey];
+      const cropDefs = defaults.crops[patch.crop];
       const currentAph =
         farm.fields.find((f) => f.fieldId === fieldId)?.aph ?? 0;
       const fi: FieldInputs = {
         cashPricePerBu: 0,
+        yieldBasis: "aph",
         yieldBuPerAcre: currentAph,
+        govtPaymentPerAcre:
+          CROP_CONFIG[patch.crop].revenueDefaults.govtPaymentPerAcre,
         landCostPerAcre: cropDefs?.landCostPerAcre ?? 0,
         machineryCostPerAcre: cropDefs?.machineryCostPerAcre ?? 0,
         directCosts: cropDefs?.directCosts.map((c) => ({ ...c })) ?? [],
@@ -140,11 +144,13 @@ export const useFarmStore = create<FarmState & FarmActions>((set, get) => ({
   addField(field) {
     const { farm, defaults, fieldInputs, defaultFieldInputs } = get();
     if (!farm) return;
-    const cropKey = field.crop as CropKey;
-    const cropDefs = defaults?.crops[cropKey];
+    const cropDefs = defaults?.crops[field.crop];
     const fi: FieldInputs = {
       cashPricePerBu: 0,
+      yieldBasis: "aph",
       yieldBuPerAcre: field.aph,
+      govtPaymentPerAcre:
+        CROP_CONFIG[field.crop].revenueDefaults.govtPaymentPerAcre,
       landCostPerAcre: cropDefs?.landCostPerAcre ?? 0,
       machineryCostPerAcre: cropDefs?.machineryCostPerAcre ?? 0,
       directCosts: cropDefs?.directCosts.map((c) => ({ ...c })) ?? [],
@@ -163,10 +169,14 @@ export const useFarmStore = create<FarmState & FarmActions>((set, get) => ({
     const { defaults, fieldInputs } = get();
     if (!defaults) return;
     const { inputs, defaultsMap } = buildInputMaps(snapshot, defaults);
-    // Preserve cashPricePerBu set on /breakeven so those edits survive a Cancel.
+    // Preserve revenue-side inputs set on /breakeven so those edits survive a Cancel.
     for (const [fieldId, fi] of inputs) {
       const existing = fieldInputs.get(fieldId);
-      if (existing) fi.cashPricePerBu = existing.cashPricePerBu;
+      if (existing) {
+        fi.cashPricePerBu = existing.cashPricePerBu;
+        fi.yieldBasis = existing.yieldBasis;
+        fi.govtPaymentPerAcre = existing.govtPaymentPerAcre;
+      }
     }
     set({ farm: snapshot, fieldInputs: inputs, defaultFieldInputs: defaultsMap });
   },

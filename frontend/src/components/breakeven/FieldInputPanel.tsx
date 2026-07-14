@@ -5,7 +5,9 @@ import type { CostLine } from "@/lib/calc/scenario";
 
 export interface FieldInputs {
   cashPricePerBu: number;
+  yieldBasis: "aph" | "expected";
   yieldBuPerAcre: number;
+  govtPaymentPerAcre: number;
   landCostPerAcre: number;
   machineryCostPerAcre: number;
   directCosts: CostLine[];
@@ -62,7 +64,7 @@ export default function FieldInputPanel({
         <p className="text-base font-semibold text-stone-900 mt-0.5">Enter Your Numbers</p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <NumInput
           label="Cash Price"
           hint="$/bu — your local elevator"
@@ -77,6 +79,32 @@ export default function FieldInputPanel({
           hint="bu/ac"
           value={inputs.yieldBuPerAcre}
           onChange={(v) => setNum("yieldBuPerAcre", v)}
+          step="1"
+          footer={
+            <div className="flex items-center gap-1">
+              {(["aph", "expected"] as const).map((b) => (
+                <button
+                  key={b}
+                  type="button"
+                  onClick={() => onChange({ ...inputs, yieldBasis: b })}
+                  className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition-colors ${
+                    inputs.yieldBasis === b
+                      ? "bg-amber-100 text-amber-700"
+                      : "text-stone-400 hover:text-stone-600"
+                  }`}
+                >
+                  {b === "aph" ? "APH" : "Expected"}
+                </button>
+              ))}
+              <span className="text-xs text-stone-400">bu/ac</span>
+            </div>
+          }
+        />
+        <NumInput
+          label="Govt Payment"
+          hint="$/ac — optional"
+          value={inputs.govtPaymentPerAcre}
+          onChange={(v) => setNum("govtPaymentPerAcre", v)}
           step="1"
         />
         <NumInput
@@ -171,6 +199,7 @@ function NumInput({
   step = "1",
   placeholder,
   highlight,
+  footer,
 }: {
   label: string;
   hint: string;
@@ -179,6 +208,8 @@ function NumInput({
   step?: string;
   placeholder?: string;
   highlight?: boolean;
+  /** 渲染在 hint 位置的自定义内容(如单产口径切换按钮)。 */
+  footer?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-1">
@@ -196,7 +227,7 @@ function NumInput({
             : "border-stone-200 bg-white"
         }`}
       />
-      <span className="text-xs text-stone-400">{hint}</span>
+      {footer ?? <span className="text-xs text-stone-400">{hint}</span>}
     </div>
   );
 }

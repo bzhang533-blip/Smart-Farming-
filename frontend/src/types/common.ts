@@ -1,4 +1,4 @@
-export type Crop = "corn" | "soybeans";
+export type Crop = "corn" | "soybeans" | "other";
 export type State = "IA" | "IL" | "IN";
 export type Season = string; // e.g. "2026"
 
