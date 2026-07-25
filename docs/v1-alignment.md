@@ -3,7 +3,7 @@
 **Purpose:** A shared reference so the two of us can build v1 in parallel without our numbers drifting. Please read this before we split the work.
 
 **Stack:** Next.js / React / TypeScript (frontend) · Python (backend)
-**Last updated:** 2026-07-13
+**Last updated:** 2026-07-25
 
 ---
 
@@ -81,10 +81,19 @@ Frontend owns everything from `Input layer` through `Outputs`. Backend owns the 
 
 | Method | Path | Purpose |
 |---|---|---|
-| `GET`  | `/defaults?year=2026&region=midwest` | Default budget for the UI to seed inputs |
+| `GET`  | `/defaults?year=2026&region=midwest` | Public default budget for the UI to seed inputs |
+| `GET`  | `/api/me/farm` | Load or initialize the Clerk user's farm |
+| `PUT`  | `/api/me/farm` | Update the Clerk user's farm |
+| `GET`  | `/api/me/farm/machinery` | Load the Clerk user's machinery list |
 | `POST` | `/scenarios` | Save a scenario → returns `{ id }` |
+| `GET`  | `/scenarios` | List the current Clerk user's scenario summaries |
 | `GET`  | `/scenarios/:id` | Load a scenario |
 | `PUT`  | `/scenarios/:id` | Update a scenario (optional in v1) |
+| `DELETE` | `/scenarios/:id` | Delete a scenario |
+
+All farm and scenario endpoints require a Clerk bearer token and are isolated by the
+JWT `sub`. `GET /defaults` remains public. The backend stores Scenario inputs and
+never computes or persists authoritative margin/breakeven results.
 
 ### Scenario schema — single source of truth
 
@@ -213,9 +222,12 @@ Use these to verify the engine produces the right numbers:
 
 ---
 
-## 9. Open questions (decide together)
+## 9. Decisions and remaining questions
 
-- **Auth:** include in v1, or local-only with an optional save?
-- **Region:** single value for v1 (just `"midwest"`), or sub-regions / states now?
-- **Family living:** include in v1 (it affects breakeven in the spreadsheet) or defer to v2?
-- **Defaults refresh:** where do the default numbers get updated each season, and who owns that?
+- **Auth — decided:** Clerk is enabled. Farm and Scenario persistence require a valid
+  bearer token and are isolated by JWT `sub`; defaults remain public.
+- **Region — decided for v1:** `"midwest"` is the default. A supplied non-empty region
+  is echoed, but v1 currently uses one common default budget.
+- **Family living — decided:** optional in the Scenario schema and defaults to zero.
+- **Defaults refresh — remaining:** agree on the annual update owner and source-review
+  process before replacing `backend/data/defaults.json`.

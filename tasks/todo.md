@@ -75,6 +75,22 @@
 
 ## 已完成
 
+### [2026-07-25] Harden Python backend for production
+
+**目标**：保持后端为 Python 且不新增任何计算逻辑，修复生产鉴权/CORS 配置、JSON 并发写入、Scenario 输入校验，并对齐部署与 API 文档。
+
+**计划**：
+- [x] 修正 Clerk JWKS 配置，生产使用公开 `.well-known/jwks.json`，保留显式环境变量覆盖
+- [x] 将 CORS 改为环境变量驱动的 allowlist，默认允许正式前端域名
+- [x] 把 Farm/Scenario 的 read-modify-write 纳入单个锁事务，避免并发丢失更新
+- [x] 提供无第三方依赖的生产数据备份命令，生成可校验的时间戳 ZIP
+- [x] 按 `docs/v1-alignment.md` 加强 Scenario/CropEntry/CostLine/familyLiving 校验
+- [x] 补充单元与 HTTP 测试，覆盖 CORS、完整 schema、非法负数和并发创建
+- [x] 更新 API 契约、后端同步与前端交接状态文档
+- [x] 安装既有 Python 依赖并运行测试、编译检查与 HTTP smoke test
+
+**审查**：Python 后端继续作为唯一后端运行时，未增加任何 margin/breakeven 计算。Clerk 默认 JWKS 已切到 Smart Farms 公开端点；CORS 默认仅允许正式前端并支持环境变量 allowlist；Farm/Scenario 的完整 read-modify-write 已纳入同一锁，50 路并发创建验证无数据丢失；Scenario 输入现完整校验 crop/yield basis/数值/成本行/family living；新增原子、JSON 预校验的时间戳 ZIP 备份命令。契约、生产同步和 frontend request 状态已对齐。验证：13 个 unittest 全部通过，`py_compile` 与 `git diff --check` 通过。
+
 ### [2026-07-13] Migrate backend from Dart to Python
 
 **目标**：仅将现有 backend 运行时从 Dart 迁移到 Python，保持 API 路由、鉴权、JSON 文件持久化和 v1 范围不变。

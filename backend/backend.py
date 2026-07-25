@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import secrets
@@ -12,14 +13,21 @@ from datetime import datetime, timezone
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, TypeVar
 from urllib.parse import parse_qs, urlparse
 
 import jwt
 
 
 CANONICAL_CROPS = {"corn", "soybeans", "other"}
+YIELD_BASES = {"aph", "expected"}
+COST_SOURCES = {"default", "user"}
 DATA_DIR = Path(__file__).resolve().parent / "data"
+DEFAULT_CLERK_JWKS_URL = (
+    "https://clerk.smartfarms.cc/.well-known/jwks.json"
+)
+DEFAULT_ALLOWED_ORIGINS = "https://app.smartfarms.cc"
+T = TypeVar("T")
 
 
 def utc_now() -> str:
@@ -62,24 +70,50 @@ class JsonFileStore:
 
     def write(self, value: Any) -> None:
         with self._lock:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            temporary = self.path.with_suffix(f"{self.path.suffix}.tmp")
-            temporary.write_text(
-                json.dumps(value, indent=2, ensure_ascii=False) + "\n",
-                encoding="utf-8",
-            )
-            temporary.replace(self.path)
+            self._write_unlocked(value)
+
+    def update(self, mutator: Callable[[Any], tuple[Any, T]]) -> T:
+        """Apply a complete read-modify-write transaction under one lock."""
+        with self._lock:
+            current = self._read_unlocked()
+            updated, result = mutator(current)
+            self._write_unlocked(updated)
+            return result
+
+    def _read_unlocked(self) -> Any:
+        if not self.path.exists():
+            return None
+        text = self.path.read_text(encoding="utf-8")
+        return json.loads(text) if text.strip() else None
+
+    def _write_unlocked(self, value: Any) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = self.path.with_suffix(f"{self.path.suffix}.tmp")
+        temporary.write_text(
+            json.dumps(value, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        temporary.replace(self.path)
 
 
 class DefaultsRepository:
     def __init__(self, path: Path) -> None:
         self._store = JsonFileStore(path)
 
-    def get_defaults(self, crop: str | None, region: str | None) -> dict[str, Any]:
+    def get_defaults(
+        self, year: str | None, crop: str | None, region: str | None
+    ) -> dict[str, Any]:
         data = self._store.read()
         if not isinstance(data, dict):
             raise RuntimeError("Defaults file must contain a JSON object.")
         response = deepcopy(data)
+        if year is not None:
+            try:
+                requested_year = int(year)
+            except ValueError as error:
+                raise ValueError("Year must be an integer.") from error
+            if requested_year != response.get("year"):
+                raise ValueError("Defaults not found for year.")
         if region is not None and region.strip():
             response["region"] = region.strip()
 
@@ -101,43 +135,50 @@ class FarmStore:
     def get_or_create_farm(
         self, user_id: str, display_name: str | None = None
     ) -> dict[str, Any]:
-        farms = self._read_farms()
-        existing = farms.get(user_id)
-        if existing is not None:
-            return self._public_farm(existing)
-        farm = self._default_farm(user_id, display_name)
-        farms[user_id] = farm
-        self._store.write(farms)
-        return self._public_farm(farm)
+        def mutate(data: Any) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
+            farms = self._coerce_farms(data)
+            existing = farms.get(user_id)
+            if existing is None:
+                existing = self._default_farm(user_id, display_name)
+                farms[user_id] = existing
+            return farms, self._public_farm(existing)
+
+        return self._store.update(mutate)
 
     def update_farm(self, user_id: str, patch: dict[str, Any]) -> dict[str, Any]:
-        farms = self._read_farms()
-        existing = farms.get(user_id, self._default_farm(user_id))
-        updated = {
-            **existing,
-            **self._sanitize_patch(patch),
-            "farmId": existing.get("farmId", self._farm_id_for(user_id)),
-            "userId": user_id,
-            "updatedAt": utc_now(),
-        }
-        farms[user_id] = updated
-        self._store.write(farms)
-        return updated
+        def mutate(data: Any) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
+            farms = self._coerce_farms(data)
+            existing = farms.get(user_id, self._default_farm(user_id))
+            updated = {
+                **existing,
+                **self._sanitize_patch(patch),
+                "farmId": existing.get("farmId", self._farm_id_for(user_id)),
+                "userId": user_id,
+                "updatedAt": utc_now(),
+            }
+            farms[user_id] = updated
+            return farms, updated
+
+        return self._store.update(mutate)
 
     def get_machinery(self, user_id: str) -> dict[str, Any]:
-        farms = self._read_farms()
-        existing = farms.get(user_id, self._default_farm(user_id))
-        if user_id not in farms:
+        def mutate(data: Any) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
+            farms = self._coerce_farms(data)
+            existing = farms.get(user_id, self._default_farm(user_id))
             farms[user_id] = existing
-            self._store.write(farms)
-        machinery = existing.get("machinery")
-        return {
-            "farmId": existing.get("farmId", self._farm_id_for(user_id)),
-            "machinery": machinery if isinstance(machinery, list) else [],
-        }
+            machinery = existing.get("machinery")
+            return farms, {
+                "farmId": existing.get("farmId", self._farm_id_for(user_id)),
+                "machinery": machinery if isinstance(machinery, list) else [],
+            }
+
+        return self._store.update(mutate)
 
     def _read_farms(self) -> dict[str, dict[str, Any]]:
-        data = self._store.read()
+        return self._coerce_farms(self._store.read())
+
+    @staticmethod
+    def _coerce_farms(data: Any) -> dict[str, dict[str, Any]]:
         if data is None:
             return {}
         if not isinstance(data, dict):
@@ -227,44 +268,60 @@ class ScenarioStore:
             "createdAt": now,
             "updatedAt": now,
         }
-        scenarios = self._read_scenarios()
-        scenarios.append(scenario)
-        self._store.write(scenarios)
-        return scenario
+
+        def mutate(data: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+            scenarios = self._coerce_scenarios(data)
+            scenarios.append(scenario)
+            return scenarios, scenario
+
+        return self._store.update(mutate)
 
     def update(
         self, user_id: str, scenario_id: str, payload: dict[str, Any]
     ) -> dict[str, Any] | None:
-        scenarios = self._read_scenarios()
-        for index, existing in enumerate(scenarios):
-            if existing.get("id") == scenario_id and existing.get("userId") == user_id:
-                updated = {
-                    **existing,
-                    **self._normalize_scenario(payload),
-                    "id": scenario_id,
-                    "userId": user_id,
-                    "createdAt": existing.get("createdAt"),
-                    "updatedAt": utc_now(),
-                }
-                scenarios[index] = updated
-                self._store.write(scenarios)
-                return updated
-        return None
+        def mutate(
+            data: Any,
+        ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+            scenarios = self._coerce_scenarios(data)
+            for index, existing in enumerate(scenarios):
+                if (
+                    existing.get("id") == scenario_id
+                    and existing.get("userId") == user_id
+                ):
+                    updated = {
+                        **existing,
+                        **self._normalize_scenario(payload),
+                        "id": scenario_id,
+                        "userId": user_id,
+                        "createdAt": existing.get("createdAt"),
+                        "updatedAt": utc_now(),
+                    }
+                    scenarios[index] = updated
+                    return scenarios, updated
+            return scenarios, None
+
+        return self._store.update(mutate)
 
     def delete(self, user_id: str, scenario_id: str) -> bool:
-        scenarios = self._read_scenarios()
-        remaining = [
-            item
-            for item in scenarios
-            if not (item.get("id") == scenario_id and item.get("userId") == user_id)
-        ]
-        if len(remaining) == len(scenarios):
-            return False
-        self._store.write(remaining)
-        return True
+        def mutate(data: Any) -> tuple[list[dict[str, Any]], bool]:
+            scenarios = self._coerce_scenarios(data)
+            remaining = [
+                item
+                for item in scenarios
+                if not (
+                    item.get("id") == scenario_id
+                    and item.get("userId") == user_id
+                )
+            ]
+            return remaining, len(remaining) != len(scenarios)
+
+        return self._store.update(mutate)
 
     def _read_scenarios(self) -> list[dict[str, Any]]:
-        data = self._store.read()
+        return self._coerce_scenarios(self._store.read())
+
+    @staticmethod
+    def _coerce_scenarios(data: Any) -> list[dict[str, Any]]:
         if data is None:
             return []
         if not isinstance(data, list):
@@ -318,6 +375,13 @@ def validate_scenario_payload(body: Any, partial: bool = False) -> str | None:
         region = body.get("region")
         if not isinstance(region, str) or not region.strip():
             return "Scenario.region must be a non-empty string."
+    if not partial or "farm" in body:
+        farm = body.get("farm")
+        if not isinstance(farm, dict):
+            return "Scenario.farm must be an object."
+        for field in ("name", "address"):
+            if field in farm and not isinstance(farm[field], str):
+                return f"Scenario.farm.{field} must be a string."
     if not partial or "crops" in body:
         crops = body.get("crops")
         if not isinstance(crops, list) or not crops:
@@ -327,6 +391,8 @@ def validate_scenario_payload(body: Any, partial: bool = False) -> str | None:
                 return "Each crop entry must be an object."
             if normalize_crop(crop_entry.get("crop")) is None:
                 return "Crop must be one of corn, soybeans, or other."
+            if crop_entry.get("yieldBasis") not in YIELD_BASES:
+                return "CropEntry.yieldBasis must be aph or expected."
             for field in (
                 "acres",
                 "yieldBuPerAcre",
@@ -335,18 +401,66 @@ def validate_scenario_payload(body: Any, partial: bool = False) -> str | None:
                 "landCostPerAcre",
                 "machineryCostPerAcre",
             ):
-                if field in crop_entry and not _is_number(crop_entry[field]):
-                    return f"CropEntry.{field} must be a number."
+                if field not in crop_entry or not _is_nonnegative_number(
+                    crop_entry[field]
+                ):
+                    return f"CropEntry.{field} must be a non-negative finite number."
+            direct_costs = crop_entry.get("directCosts")
+            if not isinstance(direct_costs, list):
+                return "CropEntry.directCosts must be an array."
+            seen_cost_keys: set[str] = set()
+            for cost_line in direct_costs:
+                error = _validate_cost_line(cost_line, seen_cost_keys)
+                if error:
+                    return error
+    if "familyLiving" in body:
+        family_living = body["familyLiving"]
+        if not isinstance(family_living, dict):
+            return "Scenario.familyLiving must be an object."
+        for field in ("annualLivingExpense", "annualNonFarmIncome"):
+            if field not in family_living or not _is_nonnegative_number(
+                family_living[field]
+            ):
+                return (
+                    f"Scenario.familyLiving.{field} must be a "
+                    "non-negative finite number."
+                )
     return None
 
 
 def _is_number(value: Any) -> bool:
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+    )
+
+
+def _is_nonnegative_number(value: Any) -> bool:
+    return _is_number(value) and value >= 0
+
+
+def _validate_cost_line(value: Any, seen_keys: set[str]) -> str | None:
+    if not isinstance(value, dict):
+        return "Each direct cost line must be an object."
+    key = value.get("key")
+    if not isinstance(key, str) or not key.strip():
+        return "CostLine.key must be a non-empty string."
+    if key in seen_keys:
+        return f"CostLine.key must be unique within a crop: {key}."
+    seen_keys.add(key)
+    if not isinstance(value.get("label"), str) or not value["label"].strip():
+        return "CostLine.label must be a non-empty string."
+    if not _is_nonnegative_number(value.get("value")):
+        return "CostLine.value must be a non-negative finite number."
+    if value.get("source") not in COST_SOURCES:
+        return "CostLine.source must be default or user."
+    return None
 
 
 class ClerkAuth:
     def __init__(self) -> None:
-        jwks_url = os.getenv("CLERK_JWKS_URL", "https://api.clerk.com/v1/jwks")
+        jwks_url = os.getenv("CLERK_JWKS_URL", DEFAULT_CLERK_JWKS_URL)
         self._jwks_client = jwt.PyJWKClient(jwks_url, cache_keys=True)
 
     def authenticate(self, authorization: str | None) -> tuple[str, dict[str, Any]]:
@@ -386,6 +500,13 @@ class SmartFarmServer(ThreadingHTTPServer):
     def __init__(self, address: tuple[str, int], data_dir: Path = DATA_DIR) -> None:
         super().__init__(address, SmartFarmHandler)
         self.auth = ClerkAuth()
+        self.allowed_origins = {
+            origin.strip()
+            for origin in os.getenv(
+                "SMART_FARM_ALLOWED_ORIGINS", DEFAULT_ALLOWED_ORIGINS
+            ).split(",")
+            if origin.strip()
+        }
         self.defaults = DefaultsRepository(data_dir / "defaults.json")
         self.farms = FarmStore(data_dir / "farms.json")
         self.scenarios = ScenarioStore(data_dir / "scenarios.json")
@@ -418,7 +539,9 @@ class SmartFarmHandler(BaseHTTPRequestHandler):
             if self.command == "GET" and path == "/defaults":
                 query = parse_qs(parsed.query, keep_blank_values=True)
                 body = self.server.defaults.get_defaults(
-                    _first(query.get("crop")), _first(query.get("region"))
+                    _first(query.get("year")),
+                    _first(query.get("crop")),
+                    _first(query.get("region")),
                 )
                 self._send_json(body)
                 return
@@ -573,7 +696,10 @@ class SmartFarmHandler(BaseHTTPRequestHandler):
         )
 
     def _common_headers(self) -> None:
-        self.send_header("Access-Control-Allow-Origin", "*")
+        origin = self.headers.get("Origin")
+        if origin and origin in self.server.allowed_origins:
+            self.send_header("Access-Control-Allow-Origin", origin)
+        self.send_header("Vary", "Origin")
         self.send_header(
             "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS"
         )

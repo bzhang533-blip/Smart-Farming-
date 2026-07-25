@@ -17,7 +17,7 @@
 ### JWT 验签（每个受保护接口都要做）
 
 ```
-GET https://api.clerk.com/v1/jwks
+GET https://clerk.smartfarms.cc/.well-known/jwks.json
 ```
 
 - 算法：RS256
@@ -26,6 +26,8 @@ GET https://api.clerk.com/v1/jwks
 - 把 `userId` 注入 request context，后续接口用它查 / 写数据
 
 Python 实现使用 [`PyJWT`](https://pyjwt.readthedocs.io/) 的 RS256 + JWKS 支持。
+生产环境可通过 `CLERK_JWKS_URL` 覆盖 JWKS 地址；默认值为上面的 Smart Farms
+公开 JWKS 端点。
 
 ### Farm API 变更（Breaking Change）
 
@@ -49,7 +51,7 @@ Python 实现使用 [`PyJWT`](https://pyjwt.readthedocs.io/) 的 RS256 + JWKS �
 }
 ```
 
-HTTP 状态码：新建返回 `201 Created`，已有返回 `200 OK`。
+HTTP 状态码：`200 OK`。后端会幂等地返回已有农场或创建并返回默认农场。
 
 ### Scenario 端点（URL 不变，加 JWT 验签）
 
@@ -104,7 +106,8 @@ v1 = 一个最简单的**单作物盈亏计算器**。后端在 v1 里只做两�
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| `crop` | `string?` | 作物类型(corn / soybean);缺省返回全部作物 |
+| `year` | `number?` | 预算年份；v1 当前仅提供数据文件中的年份，不匹配时返回 400 |
+| `crop` | `string?` | 作物类型(corn / soybeans / other);缺省返回全部作物 |
 | `region` | `string?` | 地区代码,用于地区化默认值;缺省返回通用「玉米带平均」占位值 |
 
 **Response 200**
@@ -137,10 +140,10 @@ v1 = 一个最简单的**单作物盈亏计算器**。后端在 v1 里只做两�
 
 > Schema 与 Scenario 对齐(见 `docs/v1-alignment.md` §6)。directCosts 为分类成本项数组;landCostPerAcre / machineryCostPerAcre 为用户可填的单位成本。
 >
-> TODO: 待后端确认 —
-> 1. `region` 维度的粒度(州 / ZIP / 通用),以及缺省时返回什么。
-> 2. directCosts 的完整列表是否由后端下发,还是前端 `COST_ITEM_CATALOG` 为准、后端只覆盖数值。
-> 3. 默认值是否按**作物**分别维护(corn / soybeans 不同)。
+> v1 已确认：
+> 1. `region` 缺省为 `"midwest"`；传入非空 region 时原样回显，当前使用同一套通用默认值。
+> 2. 后端下发完整 `directCosts` 列表，stable key 与前端 catalog 保持一致。
+> 3. 默认值按作物分别维护；`other` 返回空成本行与 0 土地/机械成本。
 
 ---
 
@@ -206,10 +209,10 @@ v1 = 一个最简单的**单作物盈亏计算器**。后端在 v1 里只做两�
 
 **Response 204**: 无 body。
 
-> TODO: 待后端确认 —
-> 1. 用户 / 农场归属:Scenario 如何关联到某个用户(鉴权方式)?v1 是否需要多用户?
-> 2. Scenario body 是**只存输入**(成本项 + 收入 + 作物 / 季 / 面积),读取后前端重算;还是连**算好的结果快照**(margin / breakeven / 敏感性)一并落库?推荐只存输入 —— 计算只有前端一份实现,落库结果会和公式飘掉。
-> 3. `Scenario` 完整字段 / 类型以 `docs/v1-alignment.md` 为准,改动需同步本文件与 `frontend/src/types/`。
+> v1 已确认：
+> 1. Scenario 通过 Clerk JWT `sub` 关联用户，并按用户隔离所有 CRUD。
+> 2. 只存输入；读取后由前端唯一计算引擎重算，不保存后端计算结果。
+> 3. `Scenario` 完整字段 / 类型以 `docs/v1-alignment.md` 为准，改动需同步本文件与 `frontend/src/types/`。
 
 ---
 
@@ -221,3 +224,4 @@ v1 = 一个最简单的**单作物盈亏计算器**。后端在 v1 里只做两�
 | 2026-06-07 | 吸收 Compeer:costStructure 改分类成本项数组;breakeven 接口加 costItems/aph/zip + subtotals/sensitivityMatrix | 已废弃 |
 | 2026-06-13 | **重写为 v1 surface**:删市场数据层 / 后端 breakeven 计算端点 / 决策驾驶舱信号(均移出 v1 范围);改为 `GET /defaults` + Scenario 持久化(CRUD);明确计算引擎在前端 TS 唯一实现、后端不算账;Scenario schema 以 `docs/v1-alignment.md` 为准 | TODO |
 | 2026-06-23 | `GET /defaults` response shape updated: `costItems[]` (old Compeer schema) → `directCosts: CostLine[]` + `landCostPerAcre` + `machineryCostPerAcre` per crop. Canonical crop name corrected from `"soybean"` → `"soybeans"`. | 完成 |
+| 2026-07-25 | 对齐 Python 生产实现：公开 Clerk JWKS、用户隔离、只存 Scenario 输入、完整 defaults、`GET /api/me/farm` 统一返回 200。 | 完成 |
