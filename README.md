@@ -3,6 +3,8 @@
 > A simple, low-friction profit & breakeven calculator for U.S. Corn Belt farms.
 > 为美国玉米带农场打造的、好上手的单作物盈亏 / 保本计算器。
 
+**🌽 Live: [app.smartfarms.cc](https://app.smartfarms.cc)**
+
 ---
 
 ## English
